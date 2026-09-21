@@ -55,6 +55,7 @@ Each app is a fully working product you can launch under your own name this week
 
 ## Related Projects
 
+- **[MagicKit](https://magickit.space)** - Free open-source AI toolbox: FLUX image generation, AI writing, AI video. MIT licensed, no sign-up required.
 - [awesome-vibecoded-saas](https://github.com/Anil-matcha/awesome-vibecoded-saas) — broader catalog of open-source SaaS alternatives; this repo remains the focused generative-AI application list.
 - [Muapi open-source alternatives](https://muapi.ai/open-source/alternative) — app-first comparisons for selected open-source alternatives in the wider ecosystem.
 - [ai-creator-academy](https://github.com/Anil-matcha/ai-creator-academy) — free curriculum teaching creators, freelancers, and agencies how to monetize generative AI — the "how to sell" companion to these "what to clone" apps

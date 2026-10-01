@@ -7,7 +7,7 @@
 
 **Community:** Join [Reddit](https://reddit.com/r/muapi) & [Discord](https://discord.gg/QhTrNRU4r3) for discussions and support
 
-> 🤖 **Automate UGC ad generations with AI coding agents:** [Generative-Media-Skills](https://github.com/SamurAIGPT/Generative-Media-Skills) — a library of skills that let agents like **Claude Code**, **Codex**, and other coding assistants drive image/video models end-to-end (script → generate → review → re-render) directly from your terminal. Perfect for shipping 100 ad variants overnight without touching a UI.
+> 🤖 **Automate UGC ad generations with AI coding agents:** [muapi-skills](https://github.com/SamurAIGPT/muapi-skills) — a library of skills that let agents like **Claude Code**, **Codex**, and other coding assistants drive image/video models end-to-end (script → generate → review → re-render) directly from your terminal. Perfect for shipping 100 ad variants overnight without touching a UI.
 
 ### Related projects
 

@@ -33,7 +33,7 @@ export function McpCliStudio() {
         <div class="grid md:grid-cols-3 gap-4">
             ${quickStep('1', 'Install the CLI', 'npm install -g muapi-cli')}
             ${quickStep('2', 'Sign in', 'muapi auth login')}
-            ${quickStep('3', 'Generate from chat', 'npx skills add SamurAIGPT/Generative-Media-Skills')}
+            ${quickStep('3', 'Generate from chat', 'npx skills add SamurAIGPT/muapi-skills')}
         </div>
     `;
     inner.appendChild(quick);
@@ -66,9 +66,9 @@ export function McpCliStudio() {
         tag: 'Skills',
         title: 'Generative Media Skills',
         body: 'Multimodal toolkit for Claude Code, Cursor, and Gemini CLI. Cinema Director, Nano-Banana, UI Designer, Logo Creator, Seedance 2, AI Clipping, and YouTube Shorts presets. Agent-native with JSON outputs and semantic exit codes.',
-        code: 'npx skills add SamurAIGPT/Generative-Media-Skills --all',
-        link: 'https://github.com/SamurAIGPT/Generative-Media-Skills',
-        linkLabel: 'View Generative-Media-Skills on GitHub',
+        code: 'npx skills add SamurAIGPT/muapi-skills --all',
+        link: 'https://github.com/SamurAIGPT/muapi-skills',
+        linkLabel: 'View muapi-skills on GitHub',
         icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.39 4.84L20 8l-4 3.9.94 5.5L12 14.77 7.06 17.4 8 11.9 4 8l5.61-1.16L12 2z"/></svg>`,
     }));
 

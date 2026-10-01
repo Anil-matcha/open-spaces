@@ -139,7 +139,7 @@ Or deploy instantly with the **Deploy to Vercel** button in each template's READ
 | [🧠 Open Grok Bot](https://github.com/Anil-matcha/open-grok-bot) | New — local-first workspace for bot personas, multimodal chat, voice dictation, governed computer use, and connectors via MUAPI | [GitHub](https://github.com/Anil-matcha/open-grok-bot) |
 | [📣 Open Pomelli](https://github.com/SamurAIGPT/Open-Pomelli) | Trending (99★) — turn a website into editable brand DNA, campaign concepts, product photography, and short-form videos | [GitHub](https://github.com/SamurAIGPT/Open-Pomelli) |
 | [✂️ AI YouTube Shorts Generator](https://github.com/SamurAIGPT/AI-Youtube-Shorts-Generator) | Popular (4.6k★) — automatically turn long-form videos into viral 9:16 shorts | [GitHub](https://github.com/SamurAIGPT/AI-Youtube-Shorts-Generator) |
-| [🧰 Generative Media Skills](https://github.com/SamurAIGPT/Generative-Media-Skills) | Trending (4.1k★) — multi-modal image/video/audio skills for Claude Code, Cursor & Gemini CLI | [GitHub](https://github.com/SamurAIGPT/Generative-Media-Skills) |
+| [🧰 Generative Media Skills](https://github.com/SamurAIGPT/muapi-skills) | Trending (4.1k★) — multi-modal image/video/audio skills for Claude Code, Cursor & Gemini CLI | [GitHub](https://github.com/SamurAIGPT/muapi-skills) |
 | [📚 LLM Wiki Agent](https://github.com/SamurAIGPT/llm-wiki-agent) | Trending (3.4k★) — a personal knowledge base that builds and maintains itself | [GitHub](https://github.com/SamurAIGPT/llm-wiki-agent) |
 
 ---

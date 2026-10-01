@@ -33,15 +33,15 @@ muapi image generate "a cyberpunk city" \\
     icon: FaStar,
     description:
       'Multimodal toolkit for Claude Code, Cursor, and Gemini CLI. Cinema Director, Nano-Banana, UI Designer, Logo Creator, Seedance 2, AI Clipping, and YouTube Shorts presets. Agent-native with JSON outputs and semantic exit codes.',
-    code: `npx skills add SamurAIGPT/Generative-Media-Skills --all`,
-    href: 'https://github.com/SamurAIGPT/Generative-Media-Skills',
+    code: `npx skills add SamurAIGPT/muapi-skills --all`,
+    href: 'https://github.com/SamurAIGPT/muapi-skills',
   },
 ];
 
 const QUICK_STEPS = [
   { num: '1', title: 'Install the CLI', code: 'npm install -g muapi-cli' },
   { num: '2', title: 'Sign in', code: 'muapi auth login' },
-  { num: '3', title: 'Add the skills', code: 'npx skills add SamurAIGPT/Generative-Media-Skills' },
+  { num: '3', title: 'Add the skills', code: 'npx skills add SamurAIGPT/muapi-skills' },
 ];
 
 const EXAMPLES = [

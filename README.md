@@ -1,184 +1,98 @@
-# 🌌 OpenSpaces
+# OpenSpaces
 
-> An open-source, self-hostable **Open Spaces** collaborative AI workspace built with Next.js (App Router, JavaScript), Tailwind CSS v4, FastAPI, Supabase PostgreSQL, and native **MuAPI** model intelligence.
+**A free, open-source, self-hostable AI workspace — an independent alternative to ChatGPT Spaces.**
 
-OpenSpaces bridges the gap between static documents and collaborative intelligence. It provides persistent shared workspaces where human teams, living editable **Pages (Canvas)**, autonomous **Dot Agents**, and inline **AI Generators** collaborate in real-time.
+OpenSpaces brings shared workspaces, editable pages, conversations, and AI tools into one place. Run it on infrastructure you control, inspect and change the code, and connect it to supported AI services such as MuAPI.
 
----
+OpenSpaces is an independent community project. It is not affiliated with or endorsed by OpenAI. ChatGPT and ChatGPT Spaces are trademarks of OpenAI.
 
-## 🎥 Walkthrough & Demo
+## Why OpenSpaces?
 
-https://github.com/user-attachments/assets/39070e32-7512-4b55-9926-c5af210e8356
+- **Open source and self-hostable:** use the MIT-licensed software and choose where to run it.
+- **Workspace-centered:** organize work in Spaces with pages and conversations.
+- **AI in the workflow:** chat with configured models and use writing and image generation tools in the page editor.
+- **Built to adapt:** extend the application and its integrations for your own needs.
 
----
+The software is free to use. Hosting, database, and third-party AI provider usage may have separate costs; OpenSpaces does not include free model inference.
 
-## 🌟 Key Features & Updates
+## What works today
 
-### 1. 🧠 Comprehensive Multimodal Model Intelligence (53 Models Across 6 Families)
-OpenSpaces supports 53 frontier and uncensored multimodal models via native MuAPI streaming endpoints (`POST /api/v1/{model}/stream`). Every model accepts `prompt`, `system_prompt`, and `image_url`:
-- **🔓 Abliterated / Low-Refusal / Uncensored (12 Models)**: `mimo-v2-6-flash-abliterated`, `abliterated-model`, `qwen-3-8-27b-obliterated`, `qwen-3-8-27b-abliterated`, `qwen-3-5-27b-queen-derestricted`, `qwen-3-5-27b-blossom-derestricted`, `qwen-3-5-27b-opus-distilled-derestricted`, `glm-5-3-flash-abliterated`, `gemma-4-31b-gembrain-abliterated`, `gemma-4-31b-sdft-abliterated`, `qwen-3-8-27b-queen`, `qwen-3-8-27b-fable`.
-- **⚡ OpenAI GPT Family (8 Models)**: `gpt-5-nano`, `gpt-5-2`, `gpt-5-5`, `gpt-5-6-luna`, `gpt-5-6-terra`, `gpt-5-6-sol`, `gpt-6-astra`, `gpt-6-1-sol`.
-- **🎭 Anthropic Claude Family (13 Models)**: `claude-haiku-4-5`, `claude-sonnet-4-5`, `claude-sonnet-4-6`, `claude-sonnet-5`, `claude-sonnet-5-5`, `claude-opus-4-5`, `claude-opus-4-6`, `claude-opus-4-7`, `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5`, `claude-fable-5`, `claude-fable-5-1`.
-- **🌐 Google Gemini Family (12 Models)**: `gemini-2-5-flash`, `gemini-2-5-pro`, `gemini-3-flash`, `gemini-3-pro`, `gemini-3-1-pro`, `gemini-3-5-flash`, `gemini-3-5-flash-openai`, `gemini-3-6-flash`, `gemini-3-6-flash-openai`, `gemini-3-7-flash`, `gemini-3-7-flash-openai`, `gemini-3-8-flash`.
-- **🚀 xAI Grok Family (4 Models)**: `grok-4-3`, `grok-4-5`, `grok-4-6`, `grok-4-7`.
-- **🌙 Moonshot Kimi & DeepSeek Family (4 Models)**: `kimi-k3`, `deepseek-v4-flash`, `deepseek-v4-1-flash`, `deepseek-v4-pro`.
+- Create and manage Spaces, pages, and messages.
+- Edit pages with a TipTap rich-text editor, Markdown mode, slash commands, autosave, and inline AI actions.
+- Use the configured MuAPI integration for chat and image generation.
+- Upload media through the configured provider integration.
+- Explore early meeting notes and Dot agent interfaces.
 
-### 2. 💬 Clean Prompt & History Architecture
-- **Isolated User Prompt**: The `prompt` parameter receives strictly the current user prompt.
-- **Contextual System Prompt**: Base system instructions plus the last 10 messages of conversation history are formatted and passed via `system_prompt`, maintaining clean token budgeting and model coherence.
+**Project status:** OpenSpaces is under active development. Some interface flows are prototypes or simulated, and several README claims from earlier versions described planned behavior. In particular, the current WebSocket is not a collaborative editing system; agent execution and meeting transcription are not complete production workflows. Check the code and issues before relying on a feature.
 
-### 3. 📎 Native Media Upload & Hosted CDN Pipeline (`/api/upload_file`)
-- **Direct MuAPI File Proxy**: Backend endpoint `POST /api/upload_file` receives multipart uploads, forwards them to `https://api.muapi.ai/api/v1/upload_file`, and returns persistent CDN links (`https://cdn.muapi.ai/...`).
-- **No Blob Leaks**: Frontend uploads files immediately upon selection, displays a local thumbnail preview with a removal button, and enforces that only verified public CDN URLs are dispatched to AI models.
-- **Send Guard**: The send button is disabled while an upload is in progress to prevent sending prematurely.
+## Security and deployment status
 
-### 4. 🎨 Open Spaces Native UI & Interaction Design
-- **Input Card Layout**: Floating, rounded card design with embedded auto-resizing textarea, paperclip attachment button, and dynamic send pill button.
-- **Custom Model Selector Dropdown**: Custom dropdown showcasing model icons, titles, and capability tags (`Fast & Capable`, `Deep Reasoning`, `Balanced`, `Ultra Light`).
-- **Workspace Navigation & Sidebar**: Space switching, search, and page grouping matching modern Open Spaces.
+The current codebase does not yet enforce authentication and per-Space authorization consistently across API routes. Do not expose it as a multi-user service or use it with sensitive data until that boundary has been implemented and reviewed. Configure secrets and database access privately; never commit `.env` files or credentials.
 
-### 5. 📜 Living Document Versioning & Collaboration
-- **Revision History Drawer**: Version history tracking page revisions with one-click restore and timestamps.
-- **Space Members & Permissions**: Modal to manage space members, roles (`Owner`, `Admin`, `Member`, `Viewer`), and invite links.
-- **Space Activity Logs**: Real-time auditing of document edits, agent executions, and membership updates.
-- **Dual Storage Persistence**: In-memory store with automated fallback to Supabase PostgreSQL for seamless local development and production persistence.
+## Tech stack
 
-### 6. ✍️ OpenDots Living Document Canvas (TipTap)
-- **Rich Document Editor**: Powered by TipTap, supporting Markdown, multi-level headings, tables, task lists, and custom code blocks.
-- **Slash Commands Menu (`/`)**: Compact keyboard-first menu to insert blocks, lists, and AI generators on the fly.
-- **Inline AI Writing Assistant**: Context-aware in-place generation gathering surrounding document context with shimmering skeleton loader.
-- **AI Image Generation**: Inline `/` -> **🖼️ Generate Image** powered by `gpt-image-2-text-to-image` with aspect ratio controls and smart prompt suggestion.
+- **Web app:** Next.js, React, Tailwind CSS, TipTap
+- **API:** FastAPI, SQLAlchemy
+- **Database:** PostgreSQL-compatible configuration (including Supabase)
+- **AI provider integration:** MuAPI
 
-### 7. 🔒 Security & Key Isolation
-- **Zero API Key Leakage**: API keys reside strictly on the backend (`server/.env`).
-- **Dynamic Environment Loading**: Backend dynamically loads keys using `load_dotenv(override=True)` and `os.getenv("MUAPI_API_KEY")`.
-- **Zero Client Footprint**: No sensitive credentials are ever embedded in frontend bundles or client network requests.
+## Run locally
 
----
+### Requirements
 
-## 🏗️ Architecture
+- Node.js and npm
+- Python 3.10 or newer
+- A PostgreSQL database for persistent storage (the app also has an in-memory development fallback)
+- A MuAPI API key for provider-backed chat, image generation, and uploads
 
-```
-open-spaces/
-├── client/                      # Frontend (Next.js 16, App Router, JavaScript, Tailwind CSS v4)
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── layout.js        # Root layout, theme provider, and font definitions
-│   │   │   ├── page.js          # Core application dashboard & state orchestration
-│   │   │   └── globals.css      # Design tokens, typography & markdown body styling
-│   │   └── components/
-│   │       ├── CanvasPage.js    # Living canvas page with revision history drawer & source mode
-│   │       ├── OpenSpacesApp.js # Primary router, space switcher, and state management
-│   │       ├── OpenSpacesSidebar.js # Persistent conversation history & search sidebar
-│   │       ├── HomeWorkView.js  # Open Spaces card input, attachment preview & GPT-6 selector
-│   │       ├── CustomDropdown.js# Custom accessible dropdown with capability tags
-│   │       ├── SpaceSidebar.js  # Spaces navigation, search, and space management
-│   │       ├── SpaceLibrary.js  # Living pages library & document browser
-│   │       ├── SpaceChat.js     # Space chat with agent mentions & living page citations
-│   │       ├── ChatDrawer.js    # Slide-out assistant chat drawer with multi-turn memory
-│   │       └── editor/          # TipTap Rich Document Editor
-│   │           ├── RichEditor.js    # TipTap editor with toolbar and slash command trigger
-│   │           ├── AiPromptView.js  # Inline AI text generation node with local shimmering loader
-│   │           ├── AiImageView.js   # Inline image generation node with aspect ratios & prompt helper
-│   │           ├── slash-commands.js # Slash command definitions and fuzzy search
-│   │           └── markdown.js      # TipTap extension registry & MarkdownManager
-│   └── package.json
-│
-└── server/                      # Backend (FastAPI, SQLAlchemy, Supabase PostgreSQL, MuAPI Gateway)
-    ├── app/
-    │   ├── main.py              # FastAPI app setup, CORS, and router registration
-    │   ├── core/
-    │   │   ├── config.py        # Settings and environment variables
-    │   │   └── auth.py          # User authentication and token helpers
-    │   ├── db/
-    │   │   ├── session.py       # SQLAlchemy engine with SSL pooling for Supabase
-    │   │   └── models.py        # Database models (Spaces, Pages, Revisions, Activity, Members)
-    │   ├── models/schemas.py    # Pydantic request/response schemas
-    │   ├── services/
-    │   │   └── space_store.py   # Dual-storage layer (Supabase + In-Memory Fallback)
-    │   └── api/routers/
-    │       ├── chat.py          # GPT-6 series chat completions router (/api/v1/{model}/stream)
-    │       ├── files.py         # File & image upload router proxying to MuAPI CDN
-    │       ├── images.py        # gpt-image-2 generation & prompt suggestion via MuAPI
-    │       ├── spaces.py        # Spaces CRUD, members, and activity log endpoints
-    │       ├── pages.py         # Living pages CRUD and revision history endpoints
-    │       ├── agents.py        # Dot agent execution endpoints
-    │       └── meetings.py      # Meeting audio notes & intelligence
-    ├── run.py                   # Server runner on port 8000
-    ├── requirements.txt
-    └── .env                     # Server environment variables & MUAPI_API_KEY
-```
+### 1. Configure and start the API
 
----
-
-## ⚙️ Configuration (`server/.env`)
-
-Configure your environment variables in `server/.env`:
-
-```env
-PORT=8000
-HOST=0.0.0.0
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-
-# Supabase PostgreSQL Configuration
-DATABASE_URL=postgresql://postgres.xxx:password@aws-0-region.pooler.supabase.com:6543/postgres
-DIRECT_URL=postgresql://postgres.xxx:password@aws-0-region.pooler.supabase.com:6543/postgres
-
-# MuAPI Configuration
-MUAPI_API_KEY=your_muapi_api_key_here
-```
-
----
-
-## 🚀 Running the Project
-
-### 1. Start Backend (Port 8000)
-
-```powershell
+```bash
 cd server
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Edit `server/.env` and set `MUAPI_API_KEY`. For persistence, set `DATABASE_URL` (and `DIRECT_URL` if needed) to your PostgreSQL connection string. Keep this file private.
+
+```bash
 python run.py
 ```
-- API live at: `http://localhost:8000`
-- Interactive Swagger documentation: `http://localhost:8000/docs`
 
-### 2. Start Frontend (Port 3000)
+The API runs at `http://localhost:8000`; its interactive docs are at `http://localhost:8000/docs`.
 
-```powershell
+### 2. Start the web app
+
+In another terminal:
+
+```bash
 cd client
+npm ci
 npm run dev
 ```
-- Frontend live at: `http://localhost:3000`
 
----
+Open `http://localhost:3000`.
 
-## 🧪 Testing Endpoints
+## Configuration
 
-### 1. Test GPT-6 Series Chat Completions
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/api/chat" -Method POST `
-  -ContentType "application/json" `
-  -Body '{"model": "gpt-6-1-sol", "prompt": "Summarize vector search in 2 sentences"}'
-```
+The API reads these settings from `server/.env`:
 
-### 2. Test Multimodal Image Analysis
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/api/chat" -Method POST `
-  -ContentType "application/json" `
-  -Body '{"model": "gpt-6-1-sol", "prompt": "Describe this image", "image_url": "https://cdn.muapi.ai/outputs/sample.png"}'
-```
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | API port; defaults to `8000` |
+| `HOST` | API bind address; defaults to `0.0.0.0` |
+| `CORS_ORIGINS` | Comma-separated allowed browser origins |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `DIRECT_URL` | Optional direct database connection string; takes precedence when set |
+| `DEFAULT_MODEL` | Default configured chat model |
+| `MUAPI_API_KEY` | Provider key for MuAPI-backed features |
 
-### 3. Test Direct Media Upload
-```powershell
-$form = @{ file = Get-Item "sample.jpg" }
-Invoke-RestMethod -Uri "http://localhost:8000/api/upload_file" -Method POST -Form $form
-```
+## Contributing
 
----
+Issues, bug reports, and pull requests are welcome. Please include steps to reproduce bugs and describe the behavior you expect. For larger changes, open an issue first so the approach can be discussed.
 
-- **Expanded Multimodal Model Catalog**: Added 53 models across 6 families (Abliterated/Uncensored, OpenAI GPT, Anthropic Claude, Google Gemini, xAI Grok, Moonshot Kimi & DeepSeek) with full vision support and searchable dropdown navigation.
-- **System Prompt & History Refactor**: Formatted last 10 messages chat history into `system_prompt` while maintaining purely user input in `prompt`.
-- **Media Upload Pipeline**: Implemented `POST /api/upload_file` forwarding to `https://api.muapi.ai/api/v1/upload_file` returning CDN URLs.
-- **Open Spaces Native Input Card**: Rebuilt prompt bar with attachment preview thumbnail, remove button, and upload guard.
-- **Document History & Collaboration**: Added revision history drawer, activity logging, and space membership management.
-- **Tutorial & Walkthrough Video**: Embedded high-resolution demo walkthrough highlighting Open Spaces UI, living canvas, and model integration.
-- **API Key Security**: Purged all hardcoded keys and enforced dynamic `.env` loading.
+## License
+
+OpenSpaces is distributed under the [MIT License](LICENSE).

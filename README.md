@@ -8,7 +8,7 @@ OpenSpaces bridges the gap between static documents and collaborative intelligen
 
 ## 🎥 Walkthrough & Demo
 
-https://github.com/user-attachments/assets/3823b656-c8c2-4912-9b31-6db7f438dd2c
+https://github.com/user-attachments/assets/39070e32-7512-4b55-9926-c5af210e8356
 
 ---
 

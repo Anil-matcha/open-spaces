@@ -1,7 +1,7 @@
 # OpenSpaces comparative code review and plan
 
 **Reviewed:** 2026-10-06  
-**Scope:** `SamurAIGPT/open-spaces` current `main`; `CopilotKit/OpenDots` current `main`; current public product/help documentation for Open Spaces and Notion. This is a source and documentation review, not a deployment audit or runtime verification.
+**Scope:** `Anil-matcha/open-spaces` current `main`; `CopilotKit/OpenDots` current `main`; current public product/help documentation for Open Spaces and Notion. This is a source and documentation review, not a deployment audit or runtime verification.
 
 ## Executive summary
 
@@ -17,7 +17,7 @@ Recommended sequence: **secure the baseline → make page editing safe → add r
 
 ### Repositories reviewed
 
-- [SamurAIGPT/open-spaces](https://github.com/SamurAIGPT/open-spaces)
+- [Anil-matcha/open-spaces](https://github.com/Anil-matcha/open-spaces)
 - [CopilotKit/OpenDots](https://github.com/CopilotKit/OpenDots)
 - OpenDots [setup and page behavior](https://github.com/CopilotKit/OpenDots/blob/main/docs/SETUP.md)
 - OpenDots [security boundary](https://github.com/CopilotKit/OpenDots/blob/main/SECURITY.md)

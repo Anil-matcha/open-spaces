@@ -1,6 +1,6 @@
-# OpenSpaces
+# OpenSpaces — The Free, Open-Source Alternative to ChatGPT Spaces
 
-**A free, open-source, self-hostable AI workspace — an independent alternative to ChatGPT Spaces.**
+**A free, open-source, self-hostable AI workspace for shared pages, conversations, and AI tools.**
 
 OpenSpaces brings shared workspaces, editable pages, conversations, and AI tools into one place. Run it on infrastructure you control, inspect and change the code, and connect it to supported AI services such as MuAPI.
 

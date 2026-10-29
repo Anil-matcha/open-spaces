@@ -23,7 +23,6 @@ ROOT = Path(__file__).resolve().parent
 RUNTIME = ROOT / "runtime"
 ASSET_DIR = RUNTIME / "assets"
 EXPORT_DIR = RUNTIME / "exports"
-PREP_DIR = RUNTIME / "preparations"
 STATIC_DIR = ROOT / "static"
 API_BASE = "https://api.muapi.ai/api/v1"
 MAX_VIDEO_BYTES = 50 * 1024 * 1024
@@ -32,33 +31,20 @@ MIN_VIDEO_SECONDS = 4
 MAX_VIDEO_SECONDS = 30
 ASSETS: dict[str, dict[str, Any]] = {}
 EXPORTS: dict[str, Path] = {}
-PREPARATIONS: dict[str, dict[str, Any]] = {}
 ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
-for directory in (ASSET_DIR, EXPORT_DIR, PREP_DIR):
+for directory in (ASSET_DIR, EXPORT_DIR):
     directory.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Open Genjutsu", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
-class DraftRequest(BaseModel):
+class RecastRequest(BaseModel):
     api_key: str = Field(min_length=8, max_length=500)
     source_asset_id: str
-    preparation_id: str
-    preparation_approved: bool = False
-    reference_url: str
-    prompt: str = Field(min_length=8, max_length=4000)
-
-
-class PrepareRequest(BaseModel):
-    api_key: str = Field(min_length=8, max_length=500)
-    source_asset_id: str
-
-
-class FinalizeRequest(BaseModel):
-    api_key: str = Field(min_length=8, max_length=500)
-    draft_request_id: str
+    reference_asset_id: str
+    prompt: str = Field(default="", max_length=4000)
 
 
 class ExportRequest(BaseModel):
@@ -119,7 +105,7 @@ async def _api_request(method: str, path: str, key: str, **kwargs: Any) -> httpx
     return response
 
 
-def _validate_source_video(data: bytes, suffix: str) -> None:
+def _validate_source_video(data: bytes, suffix: str) -> float:
     ffprobe = shutil.which("ffprobe")
     if not ffprobe:
         raise HTTPException(status_code=503, detail="ffprobe is required to check source-video timing. Install FFmpeg and restart the app.")
@@ -141,6 +127,7 @@ def _validate_source_video(data: bytes, suffix: str) -> None:
         raise HTTPException(status_code=422, detail="The source video duration could not be read.") from exc
     if duration < MIN_VIDEO_SECONDS or duration > MAX_VIDEO_SECONDS:
         raise HTTPException(status_code=422, detail=f"Source videos must be between {MIN_VIDEO_SECONDS} and {MAX_VIDEO_SECONDS} seconds so the edit can preserve the full performance and soundtrack.")
+    return duration
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -184,8 +171,7 @@ async def upload_media(
     if kind == "reference" and suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
         suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[content_type]
 
-    if kind == "source":
-        _validate_source_video(data, suffix)
+    duration = _validate_source_video(data, suffix) if kind == "source" else None
 
     asset_id = uuid.uuid4().hex
     local_path = None
@@ -212,311 +198,38 @@ async def upload_media(
             local_path.unlink(missing_ok=True)
         raise HTTPException(status_code=502, detail="The service accepted the upload but did not return a usable media URL.")
 
-    ASSETS[asset_id] = {"kind": kind, "path": local_path, "name": filename, "url": uploaded_url}
+    ASSETS[asset_id] = {"kind": kind, "path": local_path, "name": filename, "url": uploaded_url, "duration": duration}
     return {"asset_id": asset_id, "url": uploaded_url, "filename": filename}
 
 
-def _task_status(payload: Any) -> str:
-    if not isinstance(payload, dict):
-        return "processing"
-    for key in ("status", "task_status"):
-        if isinstance(payload.get(key), str):
-            return payload[key].lower()
-    for key in ("prediction", "data"):
-        nested = payload.get(key)
-        if isinstance(nested, dict):
-            status = _task_status(nested)
-            if status != "processing":
-                return status
-    return "processing"
-
-
-def _find_media_url(payload: Any) -> str | None:
-    video_extensions = (".mp4", ".webm", ".mov", ".mkv", ".gif")
-    seen: set[int] = set()
-
-    def visit(value: Any) -> str | None:
-        if isinstance(value, str):
-            candidate = value.strip()
-            parsed = urlparse(candidate)
-            path = parsed.path.lower()
-            if parsed.scheme == "https" and parsed.hostname and path.endswith(video_extensions):
-                return candidate
-            return None
-        if not isinstance(value, (dict, list)) or id(value) in seen:
-            return None
-        seen.add(id(value))
-        if isinstance(value, dict):
-            for key in ("video_url", "video", "output_url", "url", "outputs"):
-                if key in value:
-                    found = visit(value[key])
-                    if found:
-                        return found
-            for child in value.values():
-                found = visit(child)
-                if found:
-                    return found
-        else:
-            for child in value:
-                found = visit(child)
-                if found:
-                    return found
-        return None
-
-    return visit(payload)
-
-
-def _public_preparation(preparation_id: str, preparation: dict[str, Any]) -> dict[str, Any]:
-    def stage(name: str) -> dict[str, Any]:
-        item = preparation[name]
-        return {key: item.get(key) for key in ("status", "request_id", "error") if item.get(key) is not None}
-
-    return {
-        "preparation_id": preparation_id,
-        "depth": stage("depth"),
-        "matte": stage("matte"),
-        "ready": all(preparation[name].get("status") == "completed" and preparation[name].get("url") for name in ("depth", "matte")),
-        "composed": bool(preparation.get("prepared_path") and Path(preparation["prepared_path"]).exists()),
-    }
-
-
-@app.post("/api/prepare")
-async def prepare_source(request: PrepareRequest) -> dict[str, Any]:
-    asset_id = _safe_id(request.source_asset_id, "asset id")
-    source = ASSETS.get(asset_id)
-    if not source or source.get("kind") != "source" or not source.get("path") or not source.get("url"):
+@app.post("/api/recast")
+async def create_recast(request: RecastRequest) -> dict[str, Any]:
+    source = ASSETS.get(_safe_id(request.source_asset_id, "source asset id"))
+    reference = ASSETS.get(_safe_id(request.reference_asset_id, "reference asset id"))
+    if not source or source.get("kind") != "source" or not source.get("url") or not source.get("path"):
         raise HTTPException(status_code=404, detail="The source video is no longer available. Upload it again.")
+    if not reference or reference.get("kind") != "reference" or not reference.get("url"):
+        raise HTTPException(status_code=404, detail="The character image is no longer available. Upload it again.")
 
-    preparation_id = uuid.uuid4().hex
-    preparation: dict[str, Any] = {
-        "source_asset_id": asset_id,
-        "source_url": source["url"],
-        "depth": {"status": "submitting"},
-        "matte": {"status": "submitting"},
-    }
-    PREPARATIONS[preparation_id] = preparation
-
-    async def submit(name: str, endpoint: str, payload: dict[str, Any]) -> None:
-        stage = preparation[name]
-        try:
-            response = await _api_request("POST", endpoint, request.api_key, json=payload)
-            result = response.json()
-            request_id = result.get("request_id") if isinstance(result, dict) else None
-            if not isinstance(request_id, str) or not request_id:
-                stage.update(status="unknown", error="The service did not confirm a request ID. Check request history before retrying.")
-                return
-            stage.update(status="processing", request_id=request_id)
-        except HTTPException as exc:
-            stage.update(
-                status="unknown" if exc.status_code >= 500 else "failed",
-                error=str(exc.detail),
-            )
-        except (ValueError, httpx.HTTPError) as exc:
-            stage.update(status="unknown", error=f"The service response was unclear: {exc}")
-
-    await asyncio.gather(
-        submit("depth", "depth-anything", {"video_url": source["url"]}),
-        submit(
-            "matte",
-            "video-background-remover",
-            {
-                "video_url": source["url"],
-                "background_color": "Transparent",
-                "output_container_and_codec": "webm_vp9",
-                "preserve_audio": False,
-            },
-        ),
-    )
-    return _public_preparation(preparation_id, preparation)
-
-
-@app.get("/api/preparations/{preparation_id}/status")
-async def preparation_status(preparation_id: str, x_api_key: str = Header(..., alias="x-api-key")) -> dict[str, Any]:
-    safe_id = _safe_id(preparation_id, "preparation id")
-    preparation = PREPARATIONS.get(safe_id)
-    if not preparation:
-        raise HTTPException(status_code=404, detail="This preparation is no longer available. Upload the media again.")
-
-    completed = {"completed", "succeeded", "success", "done"}
-    failed = {"failed", "error", "cancelled", "canceled"}
-    for name in ("depth", "matte"):
-        stage = preparation[name]
-        request_id = stage.get("request_id")
-        if not request_id or stage.get("status") in completed | failed | {"unknown", "failed"}:
-            continue
-        try:
-            response = await _api_request("GET", f"predictions/{_safe_id(request_id, 'request ID')}/result", x_api_key)
-            result = response.json()
-            status = _task_status(result)
-            if status in completed:
-                url = _find_media_url(result)
-                if not url:
-                    stage.update(status="failed", error="The task completed without a usable video URL.")
-                else:
-                    stage.update(status="completed", url=url)
-            elif status in failed:
-                error_data = result.get("error") if isinstance(result, dict) else None
-                detail = result.get("error_message") if isinstance(result, dict) else None
-                if not detail and isinstance(error_data, dict):
-                    detail = error_data.get("message")
-                stage.update(status="failed", error=str(detail or "The preparation task failed."))
-            else:
-                stage["status"] = "processing"
-        except (HTTPException, ValueError) as exc:
-            stage["poll_error"] = str(getattr(exc, "detail", exc))
-
-    return _public_preparation(safe_id, preparation)
-
-
-async def _ensure_preparation_file(preparation_id: str, kind: str) -> Path:
-    preparation = PREPARATIONS.get(preparation_id)
-    if not preparation:
-        raise HTTPException(status_code=404, detail="This preparation is no longer available.")
-    source = ASSETS.get(preparation["source_asset_id"])
-    if kind == "source":
-        path = source.get("path") if source else None
-        if not path or not Path(path).exists():
-            raise HTTPException(status_code=404, detail="The local source video is no longer available.")
-        return Path(path)
-    if kind == "prepared":
-        path = preparation.get("prepared_path")
-        if not path or not Path(path).exists():
-            raise HTTPException(status_code=404, detail="Create the prepared composite before previewing it.")
-        return Path(path)
-    if kind not in {"depth", "matte"}:
-        raise HTTPException(status_code=404, detail="Unknown preparation preview.")
-    stage = preparation[kind]
-    if stage.get("status") != "completed" or not stage.get("url"):
-        raise HTTPException(status_code=409, detail="This preparation output is not ready yet.")
-    suffix = ".webm" if kind == "matte" else ".mp4"
-    path = PREP_DIR / preparation_id / f"{kind}{suffix}"
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        await _download_result(stage["url"], path)
-    return path
-
-
-@app.get("/api/preparations/{preparation_id}/media/{kind}")
-async def preparation_media(preparation_id: str, kind: str) -> FileResponse:
-    safe_id = _safe_id(preparation_id, "preparation id")
-    path = await _ensure_preparation_file(safe_id, kind)
-    media_type = "video/webm" if path.suffix.lower() == ".webm" else "video/mp4"
-    return FileResponse(path, media_type=media_type)
-
-
-def _compose_depth_subject(source_path: Path, depth_path: Path, matte_path: Path, output_path: Path) -> None:
-    ffprobe = shutil.which("ffprobe")
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffprobe or not ffmpeg:
-        raise HTTPException(status_code=503, detail="FFmpeg and ffprobe are required to compose the depth preview.")
-    probe = subprocess.run(
-        [ffprobe, "-v", "error", "-show_entries", "stream=width,height:format=duration", "-of", "json", str(source_path)],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
-    if probe.returncode != 0:
-        raise HTTPException(status_code=422, detail="The source video could not be inspected for depth compositing.")
-    try:
-        details = json.loads(probe.stdout)
-        video_stream = next(stream for stream in details["streams"] if stream.get("width") and stream.get("height"))
-        width, height = int(video_stream["width"]), int(video_stream["height"])
-        duration = float(details["format"]["duration"])
-    except (KeyError, StopIteration, TypeError, ValueError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=422, detail="The source video dimensions or duration could not be read.") from exc
-    scale = min(1.0, 960 / max(width, height))
-    width = max(2, int(width * scale) // 2 * 2)
-    height = max(2, int(height * scale) // 2 * 2)
-    filters = (
-        f"[0:v:0]setpts=PTS-STARTPTS,fps=24,scale={width}:{height},setsar=1,format=rgb24[bg];"
-        f"[1:v:0]setpts=PTS-STARTPTS,fps=24,scale={width}:{height},setsar=1,format=gray[depth];"
-        f"[2:v:0]setpts=PTS-STARTPTS,fps=24,scale={width}:{height},setsar=1,format=rgba,alphaextract[matte];"
-        "[depth][matte]alphamerge[depth_subject];"
-        "[bg][depth_subject]overlay=eof_action=pass:shortest=0:format=auto,format=yuv420p[outv]"
-    )
-    command = [
-        ffmpeg, "-y", "-i", str(source_path), "-i", str(depth_path), "-i", str(matte_path),
-        "-filter_complex", filters, "-map", "[outv]", "-map", "0:a?", "-t", str(duration),
-        "-r", "24", "-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-maxrate", "12M",
-        "-bufsize", "24M", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(output_path),
-    ]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
-    if result.returncode != 0 or not output_path.exists() or output_path.stat().st_size == 0:
-        output_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=500, detail="FFmpeg could not combine the depth map and subject matte. Check that the transparent cutout is a VP9 WebM with alpha.")
-    if output_path.stat().st_size > MAX_VIDEO_BYTES:
-        output_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=413, detail="The prepared video exceeds the 50 MB model upload limit. Try a shorter or smaller source clip.")
-
-
-@app.post("/api/preparations/{preparation_id}/compose")
-async def compose_preparation(preparation_id: str) -> dict[str, Any]:
-    safe_id = _safe_id(preparation_id, "preparation id")
-    preparation = PREPARATIONS.get(safe_id)
-    if not preparation:
-        raise HTTPException(status_code=404, detail="This preparation is no longer available.")
-    if not _public_preparation(safe_id, preparation)["ready"]:
-        raise HTTPException(status_code=409, detail="Wait for both depth and subject matte tasks to complete.")
-    if preparation.get("prepared_path") and Path(preparation["prepared_path"]).exists():
-        return {"preparation_id": safe_id, "prepared": True, "media_url": f"/api/preparations/{safe_id}/media/prepared"}
-
-    source_path = await _ensure_preparation_file(safe_id, "source")
-    depth_path = await _ensure_preparation_file(safe_id, "depth")
-    matte_path = await _ensure_preparation_file(safe_id, "matte")
-    output_path = PREP_DIR / safe_id / "prepared.mp4"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    await asyncio.to_thread(_compose_depth_subject, source_path, depth_path, matte_path, output_path)
-    preparation["prepared_path"] = output_path
-    return {"preparation_id": safe_id, "prepared": True, "media_url": f"/api/preparations/{safe_id}/media/prepared"}
-
-
-@app.post("/api/draft")
-async def create_draft(request: DraftRequest) -> dict[str, Any]:
-    source = ASSETS.get(_safe_id(request.source_asset_id, "asset id"))
-    if not source or source.get("kind") != "source" or not source.get("path"):
-        raise HTTPException(status_code=404, detail="The source video is no longer available locally. Upload it again.")
-    preparation_id = _safe_id(request.preparation_id, "preparation id")
-    preparation = PREPARATIONS.get(preparation_id)
-    if not preparation or preparation.get("source_asset_id") != request.source_asset_id:
-        raise HTTPException(status_code=404, detail="The depth and matte review is no longer available. Prepare the source again.")
-    if not request.preparation_approved:
-        raise HTTPException(status_code=400, detail="Review the depth map, subject matte, and composite before creating a draft.")
-    if not request.reference_url.startswith("https://") or not preparation.get("prepared_path"):
-        raise HTTPException(status_code=400, detail="Media URLs must use HTTPS.")
-    prepared_path = Path(preparation["prepared_path"])
-    if not prepared_path.exists():
-        raise HTTPException(status_code=404, detail="The prepared depth composite is missing. Review and compose it again.")
-    prepared_data = prepared_path.read_bytes()
-    if len(prepared_data) > MAX_VIDEO_BYTES:
-        raise HTTPException(status_code=413, detail="The prepared video exceeds the 50 MB upload limit.")
-    uploaded = await _api_request(
-        "POST",
-        "upload_file",
-        request.api_key,
-        files={"file": ("open-genjutsu-depth-composite.mp4", prepared_data, "video/mp4")},
-    )
-    try:
-        prepared_url = uploaded.json().get("url")
-    except ValueError:
-        prepared_url = None
-    if not isinstance(prepared_url, str) or not prepared_url.startswith("https://"):
-        raise HTTPException(status_code=502, detail="The service did not return a usable URL for the reviewed composite.")
+    duration = max(MIN_VIDEO_SECONDS, min(MAX_VIDEO_SECONDS, int(round(float(source.get("duration") or 5)))))
     payload = {
-        "prompt": request.prompt.strip(),
-        "images_list": [request.reference_url],
-        "videos_list": [prepared_url],
-        "omni_reference_task_type": "edit",
-        "resolution": "480p",
-        "draft": True,
+        "video_url": source["url"],
+        "images_list": [reference["url"]],
+        "aspect_ratio": "adaptive",
+        "duration": duration,
+        "generate_audio": False,
     }
-    response = await _api_request("POST", "seedance-2.5-omni-reference", request.api_key, json=payload)
+    prompt = request.prompt.strip()
+    if prompt:
+        payload["prompt"] = prompt
+
+    response = await _api_request("POST", "seedance-2.5-motion-control", request.api_key, json=payload)
     try:
         result = response.json()
     except ValueError as exc:
-        raise HTTPException(status_code=502, detail="The service returned an unreadable draft response.") from exc
+        raise HTTPException(status_code=502, detail="The service returned an unreadable recast response.") from exc
     if not result.get("request_id"):
-        raise HTTPException(status_code=502, detail="The service did not return a draft request ID.")
+        raise HTTPException(status_code=502, detail="The service did not return a recast request ID.")
     return result
 
 
@@ -528,24 +241,6 @@ async def prediction(request_id: str, x_api_key: str = Header(..., alias="x-api-
         return response.json()
     except ValueError as exc:
         raise HTTPException(status_code=502, detail="The service returned an unreadable prediction response.") from exc
-
-
-@app.post("/api/finalize")
-async def finalize_draft(request: FinalizeRequest) -> dict[str, Any]:
-    draft_id = _safe_id(request.draft_request_id, "draft request ID")
-    response = await _api_request(
-        "POST",
-        "seedance-2.5-omni-reference",
-        request.api_key,
-        json={"draft_request_id": draft_id, "resolution": "1080p"},
-    )
-    try:
-        result = response.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=502, detail="The service returned an unreadable finalization response.") from exc
-    if not result.get("request_id"):
-        raise HTTPException(status_code=502, detail="The service did not return a final render request ID.")
-    return result
 
 
 def _validate_result_url(value: str) -> str:
@@ -642,10 +337,6 @@ async def clear_local_files(request: ClearRequest) -> dict[str, bool]:
         path = asset.get("path") if asset else None
         if path:
             Path(path).unlink(missing_ok=True)
-        for preparation_id, preparation in list(PREPARATIONS.items()):
-            if preparation.get("source_asset_id") == asset_id:
-                shutil.rmtree(PREP_DIR / preparation_id, ignore_errors=True)
-                PREPARATIONS.pop(preparation_id, None)
     else:
         for asset in ASSETS.values():
             path = asset.get("path")
@@ -655,9 +346,6 @@ async def clear_local_files(request: ClearRequest) -> dict[str, bool]:
         for path in ASSET_DIR.glob("*"):
             if path.is_file():
                 path.unlink(missing_ok=True)
-        PREPARATIONS.clear()
-        shutil.rmtree(PREP_DIR, ignore_errors=True)
-        PREP_DIR.mkdir(parents=True, exist_ok=True)
     for path in EXPORTS.values():
         Path(path).unlink(missing_ok=True)
     EXPORTS.clear()

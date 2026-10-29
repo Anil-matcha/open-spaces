@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#10100f" />
-    <meta name="description" content="Replace a subject in your video with a character reference, review a draft, then approve the final render." />
+    <meta name="description" content="Recast a performer in a short video with a character image while preserving the source performance and scene." />
     <title>Open Genjutsu</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -28,25 +28,23 @@
         <section class="hero">
           <div class="eyebrow"><span class="eyebrow-line"></span> VIDEO RECAST · LOCAL-FIRST WORKFLOW</div>
           <h1>Same moment.<br /><span>A new lead.</span></h1>
-          <p class="hero-copy">Recast the main subject in a video. Keep the movement, scene, and original soundtrack, with a draft review before the final render.</p>
+          <p class="hero-copy">Recast the main performer with a character reference while keeping the source performance and location. Review the inputs, render once, then download the result.</p>
         </section>
 
         <section class="workflow" aria-label="Video recast workflow">
           <div class="stepper">
-            <div class="stepper-step active" data-step="1"><span class="step-number">01</span><span>Set up</span></div>
+            <div class="stepper-step active" data-step="1"><span class="step-number">01</span><span>Inputs</span></div>
             <span class="stepper-rule"></span>
-            <div class="stepper-step" data-step="2"><span class="step-number">02</span><span>Review depth</span></div>
+            <div class="stepper-step" data-step="2"><span class="step-number">02</span><span>Recast</span></div>
             <span class="stepper-rule"></span>
-            <div class="stepper-step" data-step="3"><span class="step-number">03</span><span>Review draft</span></div>
-            <span class="stepper-rule"></span>
-            <div class="stepper-step" data-step="4"><span class="step-number">04</span><span>Final render</span></div>
+            <div class="stepper-step" data-step="3"><span class="step-number">03</span><span>Review & download</span></div>
           </div>
 
           <div class="workspace-grid">
             <section class="panel setup-panel" aria-labelledby="setup-title">
               <div class="panel-heading">
                 <div><div class="section-index">01 / INPUTS</div><h2 id="setup-title">Build your recast</h2></div>
-                <span class="step-badge">DRAFT FIRST</span>
+                <span class="step-badge">ONE RENDER</span>
               </div>
 
               <label class="field-label" for="api-key">Generation API key</label>
@@ -54,7 +52,7 @@
                 <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key" />
                 <button id="toggle-key" class="key-toggle" type="button">Show</button>
               </div>
-              <p class="field-hint">Kept in this tab's memory and forwarded by your local app for API requests.</p>
+              <p class="field-hint">Kept in this tab's memory and forwarded by your local app with each request.</p>
 
               <div class="upload-grid">
                 <div class="upload-block">
@@ -63,7 +61,7 @@
                     <input id="source-file" type="file" accept="video/mp4,video/quicktime,.mp4,.mov" />
                     <span class="upload-icon">↥</span>
                     <span class="drop-title" id="source-name">Choose your clip</span>
-                  <span class="drop-meta">MP4 or MOV · 4–30 sec · up to 50 MB</span>
+                    <span class="drop-meta">MP4 or MOV · 4–30 sec · up to 50 MB</span>
                   </label>
                   <video id="source-preview" class="source-preview hidden" controls playsinline></video>
                 </div>
@@ -79,16 +77,16 @@
                 </div>
               </div>
 
-              <label class="field-label prompt-label" for="prompt">Direction</label>
-              <textarea id="prompt" rows="5" maxlength="4000">Replace the primary subject in @video1 with the character shown in @image1. Preserve the performance, gestures, timing, framing, camera movement, lighting, and original scene. Use the depth-guided subject motion and occlusion. Do not reproduce the grayscale depth visualization or mask edges. Keep other people and scene details unchanged, and maintain a consistent character identity throughout.</textarea>
-              <p class="field-hint">The reviewed depth composite is @video1. The character image is @image1.</p>
+              <label class="field-label prompt-label" for="prompt">Direction <span class="optional-label">OPTIONAL</span></label>
+              <textarea id="prompt" rows="4" maxlength="4000">Replace the main performer with the person in the character reference. Preserve the original performance, camera work, and location.</textarea>
+              <p class="field-hint">Motion and scene guidance are prepared inside the recast workflow.</p>
 
               <div class="upload-actions">
                 <div class="upload-status" id="upload-status" aria-live="polite">Add both files and your API key to continue.</div>
                 <button class="button button-primary" id="upload-button" type="button" disabled>Upload media <span aria-hidden="true">→</span></button>
               </div>
-              <button class="button button-primary full-width hidden" id="prepare-button" type="button" disabled>Prepare depth + subject mask <span aria-hidden="true">→</span></button>
-              <div class="cost-note" id="cost-note">Preparation submits one depth task and one transparent subject-matte task. Review the full clip before creating a draft.</div>
+              <button class="button button-primary full-width hidden" id="recast-button" type="button" disabled>Start recast <span aria-hidden="true">→</span></button>
+              <div class="cost-note" id="cost-note">Review the full source clip and character image before starting. One recast request is submitted; there is no separate draft or upscale step.</div>
               <div class="alert hidden" id="error-box" role="alert"></div>
             </section>
 
@@ -100,83 +98,44 @@
               <div class="process-list">
                 <div class="process-item">
                   <span class="process-icon">◉</span>
-                  <div><h3>Build depth guidance</h3><p>Depth and subject matte are combined over the original scene, then reviewed across the full clip.</p></div>
+                  <div><h3>Choose the performance</h3><p>Use a short clip with a clear view of the performer and enough room for their movement.</p></div>
                 </div>
                 <div class="process-item">
                   <span class="process-icon">⌁</span>
-                  <div><h3>Review a 480p draft</h3><p>Check identity, motion, mask coverage, and scene details before continuing.</p></div>
+                  <div><h3>Add a character image</h3><p>The recast workflow prepares motion and scene references from your source clip.</p></div>
                 </div>
                 <div class="process-item">
                   <span class="process-icon">↗</span>
-                  <div><h3>Approve the final</h3><p>Your approval submits the accepted draft for a separate 1080p render.</p></div>
+                  <div><h3>Review the result</h3><p>Check identity, movement, and the scene, then save the video locally.</p></div>
                 </div>
               </div>
               <div class="process-footnote"><span class="lock-icon">⌑</span><span>API key stays in memory. No account or key is stored by this app.</span></div>
               <div class="requirements-card" id="requirements-card">
                 <span class="requirements-icon">◌</span>
-                <div><strong>Checking local tools…</strong><span>FFmpeg is used to restore the original soundtrack.</span></div>
+                <div><strong>Checking local tools…</strong><span>FFmpeg restores the original soundtrack when present.</span></div>
               </div>
             </aside>
           </div>
 
-          <section class="panel result-panel hidden prep-panel" id="prep-panel" aria-labelledby="prep-title">
-            <div class="panel-heading">
-              <div><div class="section-index">02 / DEPTH + MASK REVIEW</div><h2 id="prep-title">Check the full preparation</h2></div>
-              <span class="status-pill complete"><span class="status-dot"></span> READY TO REVIEW</span>
-            </div>
-            <p class="prep-intro">Play each track from beginning to end. Confirm the depth stays aligned, the subject matte covers the intended performer, and the composite preserves the original scene outside the subject.</p>
-            <div class="prep-grid">
-              <article class="prep-card"><div class="prep-card-head"><span>01</span><h3>Original clip</h3></div><div class="video-frame"><video id="prep-source-video" controls playsinline></video></div></article>
-              <article class="prep-card"><div class="prep-card-head"><span>02</span><h3>Depth map</h3></div><div class="video-frame"><video id="depth-video" controls playsinline></video></div></article>
-              <article class="prep-card"><div class="prep-card-head"><span>03</span><h3>Subject matte</h3></div><div class="video-frame matte-frame"><video id="matte-video" controls playsinline></video></div></article>
-              <article class="prep-card"><div class="prep-card-head"><span>04</span><h3>Depth composite</h3></div><div class="video-frame"><video id="composite-video" controls playsinline></video></div></article>
-            </div>
-            <div class="prep-actions">
-              <div class="prep-approval">
-                <label class="approval-check"><input id="prep-approve-check" type="checkbox" /><span>I reviewed depth alignment, mask coverage, and the composite across the full clip.</span></label>
-                <p class="approval-note">The composite uses the grayscale depth values only inside the subject matte; the original scene remains visible elsewhere.</p>
-              </div>
-              <button class="button button-primary" id="draft-button" type="button" disabled>Create 480p draft <span aria-hidden="true">→</span></button>
-            </div>
-          </section>
-
-          <section class="panel result-panel hidden" id="draft-panel" aria-labelledby="draft-title">
-            <div class="panel-heading">
-              <div><div class="section-index">03 / DRAFT REVIEW</div><h2 id="draft-title">Your draft is ready</h2></div>
-              <span class="status-pill complete"><span class="status-dot"></span> READY TO REVIEW</span>
-            </div>
-            <div class="result-grid">
-              <div class="video-frame"><video id="draft-video" controls playsinline></video></div>
-              <div class="review-copy">
-                <div class="review-kicker">TAKE YOUR TIME</div>
-                <h3>Check the whole performance.</h3>
-                <p>Look at identity consistency, motion, scene details, and timing from beginning to end. This review copy includes the original soundtrack. The final render uses this draft's settings and references.</p>
-                <a class="text-link" id="draft-open-link" href="#" target="_blank" rel="noreferrer">Open draft video ↗</a>
-                <label class="approval-check"><input id="approve-check" type="checkbox" /><span>I reviewed this draft and approve a separate 1080p final render.</span></label>
-                <button class="button button-primary full-width" id="finalize-button" type="button" disabled>Approve & render 1080p <span aria-hidden="true">→</span></button>
-                <p class="approval-note">This is a separate, paid final-render request. Your draft remains available as a preview.</p>
-              </div>
-            </div>
-          </section>
-
           <section class="panel progress-panel hidden" id="progress-panel" aria-live="polite">
-            <div class="progress-head"><div class="spinner"></div><div><div class="section-index" id="progress-eyebrow">GENERATION IN PROGRESS</div><h2 id="progress-title">Preparing your draft…</h2><p id="progress-copy">This can take a few minutes. Keep this tab open while the request is running.</p></div></div>
+            <div class="progress-head"><div class="spinner"></div><div><div class="section-index" id="progress-eyebrow">SEEDANCE MOTION CONTROL</div><h2 id="progress-title">Recasting the performer…</h2><p id="progress-copy">This may take a few minutes. Keep this tab open while the request is running.</p></div></div>
             <div class="progress-track"><span id="progress-bar"></span></div>
             <div class="progress-meta"><span id="progress-label">SUBMITTING REQUEST</span><span id="progress-request"></span></div>
           </section>
 
-          <section class="panel result-panel hidden" id="final-panel" aria-labelledby="final-title">
+          <section class="panel result-panel hidden" id="result-panel" aria-labelledby="result-title">
             <div class="panel-heading">
-              <div><div class="section-index">04 / EXPORT</div><h2 id="final-title">Your final render is ready</h2></div>
+              <div><div class="section-index">03 / REVIEW</div><h2 id="result-title">Your recast is ready</h2></div>
               <span class="status-pill complete"><span class="status-dot"></span> COMPLETE</span>
             </div>
             <div class="result-grid">
-              <div class="video-frame"><video id="final-video" controls playsinline></video></div>
+              <div class="video-frame"><video id="result-video" controls playsinline></video></div>
               <div class="review-copy final-copy">
-                <div class="review-kicker">FINAL CUT</div>
+                <div class="review-kicker">REVIEW THE FULL CLIP</div>
                 <h3 id="export-headline">Original soundtrack restored.</h3>
-                <p id="export-copy">The source soundtrack has been muxed into your 1080p render locally.</p>
-                <a class="button button-primary full-width download-button" id="download-link" href="#" download>Download final MP4 <span aria-hidden="true">↓</span></a>
+                <p id="export-copy">The source soundtrack has been muxed into the recast locally.</p>
+                <a class="text-link" id="result-open-link" href="#" target="_blank" rel="noreferrer">Open generated video ↗</a>
+                <a class="button button-primary full-width download-button" id="download-link" href="#" download>Download recast MP4 <span aria-hidden="true">↓</span></a>
                 <button class="button button-quiet full-width" id="new-recast-button" type="button">Start another recast</button>
               </div>
             </div>

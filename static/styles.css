@@ -60,6 +60,7 @@ h1 span { color: var(--accent); }
 .panel-heading h2, .progress-head h2 { margin: 0; font: 600 21px/1.2 Manrope, sans-serif; letter-spacing: -.045em; }
 .step-badge { color: #c9b178; border-color: #76613a66; background: #b18e4412; }
 .field-label { display: block; margin: 0 0 9px; color: #ddd9d1; font-size: 11px; font-weight: 600; }
+.optional-label { margin-left: 6px; color: #858178; font: 500 8px/1 "DM Mono", monospace; letter-spacing: .08em; }
 .key-row { display: flex; align-items: stretch; border: 1px solid #393933; border-radius: 4px; overflow: hidden; background: #111110; }
 .key-row:focus-within { border-color: #887443; box-shadow: 0 0 0 2px #d2b16b14; }
 .key-row input { width: 100%; min-width: 0; padding: 11px 12px; border: 0; outline: none; background: transparent; color: var(--ink); font: 12px "DM Mono", monospace; }

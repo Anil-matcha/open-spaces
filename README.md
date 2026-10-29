@@ -1,134 +1,98 @@
-# Open Genjutsu
+# OpenSpaces — The Free, Open-Source Alternative to ChatGPT Spaces
 
-**Recast the performer in a short video with a character reference.** Keep the original movement and location, review the result, and export a local MP4 with the source soundtrack restored.
+**A free, open-source, self-hostable AI workspace for shared pages, conversations, and AI tools.**
 
-Open Genjutsu is a local-first workspace: source media is previewed and retained on your device, while the generation request runs through a configured video API.
+OpenSpaces brings shared workspaces, editable pages, conversations, and AI tools into one place. Run it on infrastructure you control, inspect and change the code, and connect it to supported AI services such as MuAPI.
 
-![MIT License](https://img.shields.io/github/license/Anil-matcha/open-genjutsu) ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB) ![Local-first](https://img.shields.io/badge/runtime-local--first-5865F2)
+OpenSpaces is an independent community project. It is not affiliated with or endorsed by OpenAI. ChatGPT and ChatGPT Spaces are trademarks of OpenAI.
 
-## Sample avatar animation
+## Why OpenSpaces?
 
-<p align="center">
-  <a href="docs/media/avatar-sample.mp4"><img src="docs/media/avatar-sample.gif" alt="Five-second fictional avatar animation preview" width="360" /></a>
-  <br />
-  <sub>Fictional character animation · 5 sec · 720p · Start frame: <a href="docs/media/avatar-sample.png">PNG</a> · Full clip: <a href="docs/media/avatar-sample.mp4">MP4</a></sub>
-</p>
+- **Open source and self-hostable:** use the MIT-licensed software and choose where to run it.
+- **Workspace-centered:** organize work in Spaces with pages and conversations.
+- **AI in the workflow:** chat with configured models and use writing and image generation tools in the page editor.
+- **Built to adapt:** extend the application and its integrations for your own needs.
 
-This is an example character clip. The app's recast flow takes a source performance video and a character image as its two inputs.
+The software is free to use. Hosting, database, and third-party AI provider usage may have separate costs; OpenSpaces does not include free model inference.
 
-## Subject replacement sample
+## What works today
 
-<p align="center">
-  <a href="docs/media/recast-sample.mp4"><img src="docs/media/recast-workflow.gif" alt="Fictional source performer, character reference, and the recast result" width="810" /></a>
-  <br />
-  <sub>Source clip: <a href="docs/media/source-performer.mp4">MP4</a> · Source start frame: <a href="docs/media/source-performer.png">PNG</a> · Character reference: <a href="docs/media/avatar-sample.png">PNG</a> · Recast result: <a href="docs/media/recast-sample.mp4">MP4</a></sub>
-</p>
+- Create and manage Spaces, pages, and messages.
+- Edit pages with a TipTap rich-text editor, Markdown mode, slash commands, autosave, and inline AI actions.
+- Use the configured MuAPI integration for chat and image generation.
+- Upload media through the configured provider integration.
+- Explore early meeting notes and Dot agent interfaces.
 
-The source performer and character are fictional generated examples. The result keeps the studio setting and the source clip's simple hand gesture while replacing the performer.
+**Project status:** OpenSpaces is under active development. Some interface flows are prototypes or simulated, and several README claims from earlier versions described planned behavior. In particular, the current WebSocket is not a collaborative editing system; agent execution and meeting transcription are not complete production workflows. Check the code and issues before relying on a feature.
 
-## How it works
+## Security and deployment status
 
-1. **Choose the inputs.** Add a 4–30 second source clip and a character reference image.
-2. **Review before submitting.** Preview the full source clip and character image. Add an optional short direction.
-3. **Submit one recast request.** The motion-control workflow derives motion and scene guidance from the source clip internally; the app does not submit separate depth-map or background-removal jobs.
-4. **Check the result.** The app polls the request, downloads the generated video, and muxes the source soundtrack locally when one is present.
-5. **Save the MP4.** Review the full result and download it from the local app.
+The current codebase does not yet enforce authentication and per-Space authorization consistently across API routes. Do not expose it as a multi-user service or use it with sensitive data until that boundary has been implemented and reviewed. Configure secrets and database access privately; never commit `.env` files or credentials.
 
-The motion-control endpoint is a single generation request. It does not use the separate draft/finalize calls available on some other video endpoints.
+## Tech stack
 
-## Requirements
-
-- Python 3.10+
-- FFmpeg and `ffprobe` on your `PATH`
-- An API key and available generation credits
-
-Install FFmpeg with your system's package manager, then confirm both executables are available from a new terminal.
-
-<details>
-<summary>Install FFmpeg</summary>
-
-```bash
-# macOS with Homebrew
-brew install ffmpeg
-
-# Debian or Ubuntu
-sudo apt install ffmpeg
-```
-</details>
+- **Web app:** Next.js, React, Tailwind CSS, TipTap
+- **API:** FastAPI, SQLAlchemy
+- **Database:** PostgreSQL-compatible configuration (including Supabase)
+- **AI provider integration:** MuAPI
 
 ## Run locally
 
+### Requirements
+
+- Node.js and npm
+- Python 3.10 or newer
+- A PostgreSQL database for persistent storage (the app also has an in-memory development fallback)
+- A MuAPI API key for provider-backed chat, image generation, and uploads
+
+### 1. Configure and start the API
+
 ```bash
-git clone https://github.com/Anil-matcha/open-genjutsu.git
-cd open-genjutsu
-python3 -m venv .venv
-source .venv/bin/activate
+cd server
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python -m uvicorn app:app --host 127.0.0.1 --port 8770
+cp .env.example .env
 ```
 
-On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1`.
+Edit `server/.env` and set `MUAPI_API_KEY`. For persistence, set `DATABASE_URL` (and `DIRECT_URL` if needed) to your PostgreSQL connection string. Keep this file private.
 
-Open <http://127.0.0.1:8770>, enter your API key, choose the source clip and character image, and upload them. The key stays in page memory and is forwarded by the local app with each request.
-
-## Media limits
-
-| Input | Supported formats | Limit |
-| --- | --- | --- |
-| Source video | MP4, MOV | 4–30 seconds; 50 MB |
-| Character reference | JPEG, PNG, WebP | 10 MB |
-
-The source must be readable by FFmpeg. Use one character image per recast. The app checks the source duration before upload.
-
-## Privacy and local files
-
-- The API key is held in page memory and is not written to disk or application logs.
-- The source video is uploaded for recasting and kept locally under `runtime/assets/` for previews and soundtrack restoration.
-- The character image is uploaded for the recast request and previewed in the browser.
-- Generated exports are written under `runtime/exports/`.
-- Use **Clear local files** when finished, or remove `runtime/` after stopping the server.
-- The server binds to `127.0.0.1`. Keep it there; this app has no authentication for public hosting.
-- Uploaded media is subject to the generation API's storage and retention terms.
-
-Keep the server process and browser tab open while a job runs. Request state is held in memory and does not survive a server restart.
-
-Use only source footage and likeness references you have permission to process and share. Review the result before publishing it.
-
-## API adapter
-
-The local FastAPI adapter uses these requests:
-
-| Purpose | Request |
-| --- | --- |
-| Upload source and reference | `POST /api/v1/upload_file` |
-| Submit the recast | `POST /api/v1/seedance-2.5-motion-control` with `video_url`, `images_list`, optional `prompt`, `aspect_ratio`, `duration`, and `generate_audio: false` |
-| Check generation status | `GET /api/v1/predictions/{request_id}/result` |
-
-The model request uses the original source video and character image directly. Its motion-control pipeline prepares depth and scene references internally.
-
-The local app restores source audio after generation with FFmpeg. Replace the adapter calls in `app.py` to connect a different service with the same submit-and-poll pattern.
-
-## Troubleshooting
-
-| Issue | What to check |
-| --- | --- |
-| FFmpeg is not ready | Install FFmpeg, open a new terminal, and confirm `ffmpeg -version` and `ffprobe -version` work. |
-| Upload is rejected | Check format, size, duration, API key, and account balance. |
-| A request times out | Resume status checks or inspect request history before submitting again. |
-| Source audio is missing | Confirm the source file still exists under `runtime/assets/` and FFmpeg can read its audio codec. |
-| Job state is missing | The app process may have restarted. Start a new session and upload the media again. |
-
-## Project layout
-
-```text
-app.py              Local FastAPI server and API adapter
-static/index.html   Workflow interface
-static/app.js       Upload, polling, review, and export flow
-static/styles.css   Responsive studio interface
-runtime/assets/     Temporary local source copies (ignored by Git)
-runtime/exports/    Local exports (ignored by Git)
+```bash
+python run.py
 ```
+
+The API runs at `http://localhost:8000`; its interactive docs are at `http://localhost:8000/docs`.
+
+### 2. Start the web app
+
+In another terminal:
+
+```bash
+cd client
+npm ci
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Configuration
+
+The API reads these settings from `server/.env`:
+
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | API port; defaults to `8000` |
+| `HOST` | API bind address; defaults to `0.0.0.0` |
+| `CORS_ORIGINS` | Comma-separated allowed browser origins |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `DIRECT_URL` | Optional direct database connection string; takes precedence when set |
+| `DEFAULT_MODEL` | Default configured chat model |
+| `MUAPI_API_KEY` | Provider key for MuAPI-backed features |
+
+## Contributing
+
+Issues, bug reports, and pull requests are welcome. Please include steps to reproduce bugs and describe the behavior you expect. For larger changes, open an issue first so the approach can be discussed.
 
 ## License
 
-Open Genjutsu is licensed under the MIT License. See [LICENSE](LICENSE).
+OpenSpaces is distributed under the [MIT License](LICENSE).

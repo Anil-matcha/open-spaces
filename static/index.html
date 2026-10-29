@@ -35,9 +35,11 @@
           <div class="stepper">
             <div class="stepper-step active" data-step="1"><span class="step-number">01</span><span>Set up</span></div>
             <span class="stepper-rule"></span>
-            <div class="stepper-step" data-step="2"><span class="step-number">02</span><span>Make a draft</span></div>
+            <div class="stepper-step" data-step="2"><span class="step-number">02</span><span>Review depth</span></div>
             <span class="stepper-rule"></span>
-            <div class="stepper-step" data-step="3"><span class="step-number">03</span><span>Approve final</span></div>
+            <div class="stepper-step" data-step="3"><span class="step-number">03</span><span>Review draft</span></div>
+            <span class="stepper-rule"></span>
+            <div class="stepper-step" data-step="4"><span class="step-number">04</span><span>Final render</span></div>
           </div>
 
           <div class="workspace-grid">
@@ -78,15 +80,15 @@
               </div>
 
               <label class="field-label prompt-label" for="prompt">Direction</label>
-              <textarea id="prompt" rows="5" maxlength="4000">Replace the primary subject in @video1 with the character shown in @image1. Preserve the original performance, gestures, timing, framing, camera movement, lighting, and background. Keep other people and scene details unchanged. Maintain a consistent character identity throughout.</textarea>
-              <p class="field-hint">The source clip is @video1. The character image is @image1.</p>
+              <textarea id="prompt" rows="5" maxlength="4000">Replace the primary subject in @video1 with the character shown in @image1. Preserve the performance, gestures, timing, framing, camera movement, lighting, and original scene. Use the depth-guided subject motion and occlusion. Do not reproduce the grayscale depth visualization or mask edges. Keep other people and scene details unchanged, and maintain a consistent character identity throughout.</textarea>
+              <p class="field-hint">The reviewed depth composite is @video1. The character image is @image1.</p>
 
               <div class="upload-actions">
                 <div class="upload-status" id="upload-status" aria-live="polite">Add both files and your API key to continue.</div>
                 <button class="button button-primary" id="upload-button" type="button" disabled>Upload media <span aria-hidden="true">→</span></button>
               </div>
-              <button class="button button-primary full-width hidden" id="draft-button" type="button" disabled>Create 480p draft <span aria-hidden="true">→</span></button>
-              <div class="cost-note" id="cost-note">Draft and final submissions use account credits. A separate 1080p render is only submitted after your approval.</div>
+              <button class="button button-primary full-width hidden" id="prepare-button" type="button" disabled>Prepare depth + subject mask <span aria-hidden="true">→</span></button>
+              <div class="cost-note" id="cost-note">Preparation submits one depth task and one transparent subject-matte task. Review the full clip before creating a draft.</div>
               <div class="alert hidden" id="error-box" role="alert"></div>
             </section>
 
@@ -98,15 +100,15 @@
               <div class="process-list">
                 <div class="process-item">
                   <span class="process-icon">◉</span>
-                  <div><h3>Upload your source</h3><p>Your selected media is sent to the generation service. The source also stays on this device for audio restoration.</p></div>
+                  <div><h3>Build depth guidance</h3><p>Depth and subject matte are combined over the original scene, then reviewed across the full clip.</p></div>
                 </div>
                 <div class="process-item">
                   <span class="process-icon">⌁</span>
-                  <div><h3>Review at 480p</h3><p>Check the full clip with its original soundtrack before you decide to continue.</p></div>
+                  <div><h3>Review a 480p draft</h3><p>Check identity, motion, mask coverage, and scene details before continuing.</p></div>
                 </div>
                 <div class="process-item">
                   <span class="process-icon">↗</span>
-                  <div><h3>Approve at 1080p</h3><p>Your approval submits the accepted draft for a final HD render.</p></div>
+                  <div><h3>Approve the final</h3><p>Your approval submits the accepted draft for a separate 1080p render.</p></div>
                 </div>
               </div>
               <div class="process-footnote"><span class="lock-icon">⌑</span><span>API key stays in memory. No account or key is stored by this app.</span></div>
@@ -117,9 +119,30 @@
             </aside>
           </div>
 
+          <section class="panel result-panel hidden prep-panel" id="prep-panel" aria-labelledby="prep-title">
+            <div class="panel-heading">
+              <div><div class="section-index">02 / DEPTH + MASK REVIEW</div><h2 id="prep-title">Check the full preparation</h2></div>
+              <span class="status-pill complete"><span class="status-dot"></span> READY TO REVIEW</span>
+            </div>
+            <p class="prep-intro">Play each track from beginning to end. Confirm the depth stays aligned, the subject matte covers the intended performer, and the composite preserves the original scene outside the subject.</p>
+            <div class="prep-grid">
+              <article class="prep-card"><div class="prep-card-head"><span>01</span><h3>Original clip</h3></div><div class="video-frame"><video id="prep-source-video" controls playsinline></video></div></article>
+              <article class="prep-card"><div class="prep-card-head"><span>02</span><h3>Depth map</h3></div><div class="video-frame"><video id="depth-video" controls playsinline></video></div></article>
+              <article class="prep-card"><div class="prep-card-head"><span>03</span><h3>Subject matte</h3></div><div class="video-frame matte-frame"><video id="matte-video" controls playsinline></video></div></article>
+              <article class="prep-card"><div class="prep-card-head"><span>04</span><h3>Depth composite</h3></div><div class="video-frame"><video id="composite-video" controls playsinline></video></div></article>
+            </div>
+            <div class="prep-actions">
+              <div class="prep-approval">
+                <label class="approval-check"><input id="prep-approve-check" type="checkbox" /><span>I reviewed depth alignment, mask coverage, and the composite across the full clip.</span></label>
+                <p class="approval-note">The composite uses the grayscale depth values only inside the subject matte; the original scene remains visible elsewhere.</p>
+              </div>
+              <button class="button button-primary" id="draft-button" type="button" disabled>Create 480p draft <span aria-hidden="true">→</span></button>
+            </div>
+          </section>
+
           <section class="panel result-panel hidden" id="draft-panel" aria-labelledby="draft-title">
             <div class="panel-heading">
-              <div><div class="section-index">02 / REVIEW</div><h2 id="draft-title">Your draft is ready</h2></div>
+              <div><div class="section-index">03 / DRAFT REVIEW</div><h2 id="draft-title">Your draft is ready</h2></div>
               <span class="status-pill complete"><span class="status-dot"></span> READY TO REVIEW</span>
             </div>
             <div class="result-grid">
@@ -144,7 +167,7 @@
 
           <section class="panel result-panel hidden" id="final-panel" aria-labelledby="final-title">
             <div class="panel-heading">
-              <div><div class="section-index">03 / EXPORT</div><h2 id="final-title">Your final render is ready</h2></div>
+              <div><div class="section-index">04 / EXPORT</div><h2 id="final-title">Your final render is ready</h2></div>
               <span class="status-pill complete"><span class="status-dot"></span> COMPLETE</span>
             </div>
             <div class="result-grid">

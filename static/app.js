@@ -5,28 +5,58 @@ const state = {
   sourceAssetId: null,
   sourceUrl: null,
   referenceUrl: null,
+  uploaded: false,
+  preparationId: null,
+  preparationReady: false,
+  preparationResumeOnly: false,
+  preparationUnknown: false,
   draftRequestId: null,
   draftResumeOnly: false,
+  draftUnknown: false,
   draftUrl: null,
   finalRequestId: null,
   finalResumeOnly: false,
   finalizeUnknown: false,
   ffmpeg: false,
   busy: false,
-  locked: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
 const elements = {
-  apiKey: $("#api-key"), sourceFile: $("#source-file"), referenceFile: $("#reference-file"),
-  sourceName: $("#source-name"), referenceName: $("#reference-name"), sourcePreview: $("#source-preview"),
-  referencePreview: $("#reference-preview"), uploadButton: $("#upload-button"), draftButton: $("#draft-button"),
-  uploadStatus: $("#upload-status"), prompt: $("#prompt"), error: $("#error-box"),
-  progress: $("#progress-panel"), progressTitle: $("#progress-title"), progressCopy: $("#progress-copy"),
-  progressBar: $("#progress-bar"), progressLabel: $("#progress-label"), progressRequest: $("#progress-request"),
-  draftPanel: $("#draft-panel"), draftVideo: $("#draft-video"), draftLink: $("#draft-open-link"),
-  approveCheck: $("#approve-check"), finalizeButton: $("#finalize-button"), finalPanel: $("#final-panel"),
-  finalVideo: $("#final-video"), downloadLink: $("#download-link"), requirements: $("#requirements-card"),
+  apiKey: $("#api-key"),
+  sourceFile: $("#source-file"),
+  referenceFile: $("#reference-file"),
+  sourceName: $("#source-name"),
+  referenceName: $("#reference-name"),
+  sourcePreview: $("#source-preview"),
+  referencePreview: $("#reference-preview"),
+  uploadButton: $("#upload-button"),
+  prepareButton: $("#prepare-button"),
+  draftButton: $("#draft-button"),
+  uploadStatus: $("#upload-status"),
+  prompt: $("#prompt"),
+  error: $("#error-box"),
+  progress: $("#progress-panel"),
+  progressTitle: $("#progress-title"),
+  progressCopy: $("#progress-copy"),
+  progressBar: $("#progress-bar"),
+  progressLabel: $("#progress-label"),
+  progressRequest: $("#progress-request"),
+  prepPanel: $("#prep-panel"),
+  prepSourceVideo: $("#prep-source-video"),
+  depthVideo: $("#depth-video"),
+  matteVideo: $("#matte-video"),
+  compositeVideo: $("#composite-video"),
+  prepApproveCheck: $("#prep-approve-check"),
+  draftPanel: $("#draft-panel"),
+  draftVideo: $("#draft-video"),
+  draftLink: $("#draft-open-link"),
+  approveCheck: $("#approve-check"),
+  finalizeButton: $("#finalize-button"),
+  finalPanel: $("#final-panel"),
+  finalVideo: $("#final-video"),
+  downloadLink: $("#download-link"),
+  requirements: $("#requirements-card"),
 };
 
 function setError(message) {
@@ -48,11 +78,11 @@ async function api(path, options = {}) {
   }
   const response = await fetch(path, { method: options.method || "GET", headers, body });
   let data = {};
-  try { data = await response.json(); } catch { /* An empty error body is handled below. */ }
+  try { data = await response.json(); } catch { /* The status code below is enough for an empty response. */ }
   if (!response.ok) {
     let detail = data.detail;
     if (detail && typeof detail === "object") detail = detail.error?.message || detail.message;
-    const error = new Error(typeof detail === "string" ? detail : data.message || `Request failed (${response.status}).`);
+    const error = new Error(typeof detail === "string" ? detail : data.message || "Request failed (" + response.status + ").");
     error.status = response.status;
     throw error;
   }
@@ -67,15 +97,13 @@ function busy(button, isBusy, label) {
   else if (!isBusy && button.dataset.originalText) button.innerHTML = button.dataset.originalText;
 }
 
-function updateUploadButton() {
-  const ready = Boolean(elements.apiKey.value.trim() && state.sourceFile && state.referenceFile && !state.busy && !state.locked);
+function updateControls() {
+  const ready = Boolean(elements.apiKey.value.trim() && state.sourceFile && state.referenceFile && !state.busy && !state.uploaded);
   elements.uploadButton.disabled = !ready;
-}
-
-function lockInputs(locked) {
-  state.locked = locked;
-  [elements.apiKey, elements.sourceFile, elements.referenceFile, elements.prompt].forEach((input) => { input.disabled = locked; });
-  updateUploadButton();
+  elements.apiKey.disabled = state.busy;
+  elements.sourceFile.disabled = state.busy || state.uploaded;
+  elements.referenceFile.disabled = state.busy || state.uploaded;
+  elements.prompt.disabled = state.busy;
 }
 
 function setStep(activeStep) {
@@ -88,25 +116,32 @@ function setStep(activeStep) {
 
 function showProgress(kind, requestId, status = "processing") {
   const isFinal = kind === "final";
+  const isPrep = kind === "preparation";
   elements.progress.classList.remove("hidden");
   elements.draftPanel.classList.add("hidden");
   elements.finalPanel.classList.add("hidden");
-  elements.progressTitle.textContent = isFinal ? "Rendering your approved final…" : "Preparing your draft…";
-  elements.progressCopy.textContent = isFinal
-    ? "The service is finalizing the accepted draft at 1080p. Keep this tab open while it runs."
-    : "The service is generating your 480p preview. Keep this tab open while it runs.";
-  elements.progressRequest.textContent = requestId ? `REQUEST ${requestId.slice(0, 12).toUpperCase()}` : "";
-  const label = status === "submitting" ? "SUBMITTING REQUEST" : "WAITING FOR SERVICE";
-  elements.progressLabel.textContent = label;
+  elements.progressTitle.textContent = isPrep
+    ? "Preparing depth and subject matte…"
+    : isFinal ? "Rendering your approved final…" : "Preparing your draft…";
+  elements.progressCopy.textContent = isPrep
+    ? "Depth extraction and subject separation run in parallel. This can take several minutes."
+    : isFinal
+      ? "The accepted draft is being rendered at 1080p. Keep this tab open while it runs."
+      : "The reviewed depth composite is being generated as a 480p preview. Keep this tab open while it runs.";
+  elements.progressRequest.textContent = requestId ? "REQUEST " + requestId.slice(0, 12).toUpperCase() : "";
+  const labels = { submitting: "SUBMITTING REQUEST", processing: "WAITING FOR SERVICE", completed: "COMPLETE" };
+  elements.progressLabel.textContent = labels[status] || "WAITING FOR SERVICE";
   elements.progressBar.classList.toggle("indeterminate", status !== "completed");
   elements.progressBar.classList.toggle("finished", status === "completed");
-  $("#progress-eyebrow").textContent = isFinal ? "1080P FINAL RENDER" : "480P DRAFT PREVIEW";
+  $("#progress-eyebrow").textContent = isPrep ? "DEPTH + MATTE PREPARATION" : isFinal ? "1080P FINAL RENDER" : "480P DRAFT PREVIEW";
 }
 
 function findVideoUrl(payload) {
-  const roots = [payload?.output_data, payload?.output, payload?.result, payload?.data?.output_data, payload?.data?.output, payload?.data, payload];
   const seen = new Set();
   const visit = (value) => {
+    if (typeof value === "string") {
+      return /^https:\/\//i.test(value) && /\.(mp4|webm|mov|mkv|gif)(\?|$)/i.test(value) ? value : null;
+    }
     if (!value || typeof value !== "object" || seen.has(value)) return null;
     seen.add(value);
     if (Array.isArray(value)) {
@@ -116,9 +151,9 @@ function findVideoUrl(payload) {
       }
       return null;
     }
-    for (const key of ["video_url", "video", "output_url", "url"]) {
-      const candidate = value[key];
-      if (typeof candidate === "string" && /^https:\/\//i.test(candidate) && (key !== "url" || /\.mp4(?:\?|$)/i.test(candidate))) return candidate;
+    for (const key of ["video_url", "video", "output_url", "url", "outputs"]) {
+      const found = visit(value[key]);
+      if (found) return found;
     }
     for (const child of Object.values(value)) {
       const found = visit(child);
@@ -126,15 +161,15 @@ function findVideoUrl(payload) {
     }
     return null;
   };
-  for (const root of roots) {
-    const found = visit(root);
-    if (found) return found;
-  }
-  return null;
+  return visit(payload?.output_data || payload?.output || payload?.result || payload?.data || payload);
 }
 
 function taskStatus(payload) {
   return String(payload?.status || payload?.task_status || payload?.prediction?.status || payload?.data?.status || "processing").toLowerCase();
+}
+
+function sleep(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 async function waitForTask(requestId, kind) {
@@ -142,7 +177,9 @@ async function waitForTask(requestId, kind) {
   const terminalSuccess = new Set(["completed", "succeeded", "success", "done"]);
   const terminalFailure = new Set(["failed", "error", "cancelled", "canceled"]);
   while (Date.now() - started < 45 * 60 * 1000) {
-    const result = await api(`/api/predictions/${encodeURIComponent(requestId)}`, { headers: { "x-api-key": state.apiKey } });
+    const result = await api("/api/predictions/" + encodeURIComponent(requestId), {
+      headers: { "x-api-key": state.apiKey },
+    });
     const status = taskStatus(result);
     showProgress(kind, requestId, status);
     if (terminalSuccess.has(status)) {
@@ -156,9 +193,38 @@ async function waitForTask(requestId, kind) {
       error.terminal = true;
       throw error;
     }
-    await new Promise((resolve) => window.setTimeout(resolve, 3500));
+    await sleep(3500);
   }
-  throw new Error("This request is taking longer than expected. Check its status in your provider's history before submitting again.");
+  throw new Error("This request is taking longer than expected. Check its status before submitting another generation.");
+}
+
+async function waitForPreparation() {
+  const started = Date.now();
+  const complete = new Set(["completed", "succeeded", "success", "done"]);
+  const failed = new Set(["failed", "error", "cancelled", "canceled", "unknown"]);
+  while (Date.now() - started < 45 * 60 * 1000) {
+    const status = await api("/api/preparations/" + encodeURIComponent(state.preparationId) + "/status", {
+      headers: { "x-api-key": state.apiKey },
+    });
+    const depthStatus = status.depth?.status || "unknown";
+    const matteStatus = status.matte?.status || "unknown";
+    const depthDone = complete.has(depthStatus);
+    const matteDone = complete.has(matteStatus);
+    elements.progressCopy.textContent = "Depth map: " + depthStatus + " · Subject matte: " + matteStatus + ".";
+    elements.progressRequest.textContent = [
+      status.depth?.request_id ? "DEPTH " + status.depth.request_id.slice(0, 8).toUpperCase() : "",
+      status.matte?.request_id ? "MATTE " + status.matte.request_id.slice(0, 8).toUpperCase() : "",
+    ].filter(Boolean).join(" · ");
+    if (failed.has(depthStatus) || failed.has(matteStatus)) {
+      const detail = status.depth?.error || status.matte?.error || "A preparation task did not complete.";
+      const error = new Error(detail + " Check request history before starting another preparation.");
+      error.terminal = true;
+      throw error;
+    }
+    if (depthDone && matteDone && status.ready) return status;
+    await sleep(3500);
+  }
+  throw new Error("Preparation is still running. Resume status checks here; do not submit another preparation.");
 }
 
 async function uploadOne(file, kind) {
@@ -169,37 +235,30 @@ async function uploadOne(file, kind) {
   return api("/api/upload", { method: "POST", body: form });
 }
 
-elements.apiKey.addEventListener("input", updateUploadButton);
+elements.apiKey.addEventListener("input", updateControls);
 elements.sourceFile.addEventListener("change", () => {
   state.sourceFile = elements.sourceFile.files?.[0] || null;
-  state.sourceAssetId = null;
-  state.sourceUrl = null;
   elements.sourceName.textContent = state.sourceFile?.name || "Choose your clip";
   if (state.sourceFile) {
     elements.sourcePreview.src = URL.createObjectURL(state.sourceFile);
     elements.sourcePreview.classList.remove("hidden");
   } else {
     elements.sourcePreview.classList.add("hidden");
+    elements.sourcePreview.removeAttribute("src");
   }
-  elements.draftButton.classList.add("hidden");
-  elements.uploadButton.classList.remove("hidden");
-  elements.uploadStatus.textContent = "Source changed. Upload both files to continue.";
-  updateUploadButton();
+  updateControls();
 });
 elements.referenceFile.addEventListener("change", () => {
   state.referenceFile = elements.referenceFile.files?.[0] || null;
-  state.referenceUrl = null;
   elements.referenceName.textContent = state.referenceFile?.name || "Choose a clear image";
   if (state.referenceFile) {
     elements.referencePreview.src = URL.createObjectURL(state.referenceFile);
     elements.referencePreview.classList.remove("hidden");
   } else {
     elements.referencePreview.classList.add("hidden");
+    elements.referencePreview.removeAttribute("src");
   }
-  elements.draftButton.classList.add("hidden");
-  elements.uploadButton.classList.remove("hidden");
-  elements.uploadStatus.textContent = "Reference changed. Upload both files to continue.";
-  updateUploadButton();
+  updateControls();
 });
 
 $("#toggle-key").addEventListener("click", () => {
@@ -213,7 +272,7 @@ elements.uploadButton.addEventListener("click", async () => {
   state.apiKey = elements.apiKey.value.trim();
   if (!state.apiKey || !state.sourceFile || !state.referenceFile) return;
   state.busy = true;
-  lockInputs(true);
+  updateControls();
   busy(elements.uploadButton, true, "Uploading…");
   elements.uploadStatus.textContent = "Uploading source video and character image…";
   try {
@@ -224,44 +283,104 @@ elements.uploadButton.addEventListener("click", async () => {
     state.sourceAssetId = source.asset_id;
     state.sourceUrl = source.url;
     state.referenceUrl = reference.url;
-    elements.uploadStatus.innerHTML = '<span class="uploaded-check">✓</span> Media uploaded. Your source is also held locally for audio restoration.';
+    state.uploaded = true;
+    elements.uploadStatus.innerHTML = '<span class="uploaded-check">✓</span> Media uploaded. The source also stays on this device for audio restoration.';
     elements.uploadButton.classList.add("hidden");
-    elements.draftButton.classList.remove("hidden");
-    elements.draftButton.disabled = false;
+    elements.prepareButton.classList.remove("hidden");
+    elements.prepareButton.disabled = false;
+    setStep(2);
   } catch (error) {
     setError(error.message);
     elements.uploadStatus.textContent = "Upload did not finish. Check your key and try again.";
-    busy(elements.uploadButton, false);
   } finally {
     state.busy = false;
-    lockInputs(false);
-    updateUploadButton();
-    elements.draftButton.disabled = !state.sourceUrl || !state.referenceUrl;
+    busy(elements.uploadButton, false);
+    updateControls();
   }
+});
+
+elements.prepareButton.addEventListener("click", async () => {
+  clearError();
+  state.apiKey = elements.apiKey.value.trim() || state.apiKey;
+  if (!state.sourceAssetId || !state.apiKey || state.preparationUnknown) return;
+  state.busy = true;
+  updateControls();
+  elements.prepareButton.classList.add("hidden");
+  showProgress("preparation", null, state.preparationResumeOnly ? "processing" : "submitting");
+  try {
+    if (!state.preparationId) {
+      const submitted = await api("/api/prepare", {
+        method: "POST",
+        json: { api_key: state.apiKey, source_asset_id: state.sourceAssetId },
+      });
+      state.preparationId = submitted.preparation_id;
+    }
+    const completed = await waitForPreparation();
+    await api("/api/preparations/" + encodeURIComponent(state.preparationId) + "/compose", { method: "POST", json: {} });
+    const mediaBase = "/api/preparations/" + encodeURIComponent(state.preparationId) + "/media/";
+    elements.prepSourceVideo.src = mediaBase + "source";
+    elements.depthVideo.src = mediaBase + "depth";
+    elements.matteVideo.src = mediaBase + "matte";
+    elements.compositeVideo.src = mediaBase + "prepared";
+    state.preparationReady = Boolean(completed.ready);
+    state.preparationResumeOnly = false;
+    elements.prepPanel.classList.remove("hidden");
+    elements.progress.classList.add("hidden");
+    elements.prepApproveCheck.checked = false;
+    elements.draftButton.disabled = true;
+    setStep(2);
+    elements.prepPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    elements.progress.classList.add("hidden");
+    if (error.status === 504 && !state.preparationId) {
+      state.preparationUnknown = true;
+      setError("The service did not confirm whether preparation was accepted. Check request history before retrying; the app has disabled another submission for this source.");
+    } else if (error.terminal) {
+      state.preparationUnknown = true;
+      setError("A depth or matte task failed or returned an unclear result. Check request history, then clear this session before starting a new preparation. " + error.message);
+    } else if (state.preparationId) {
+      state.preparationResumeOnly = true;
+      elements.prepareButton.innerHTML = "Resume preparation status <span aria-hidden=\"true\">→</span>";
+      elements.prepareButton.classList.remove("hidden");
+      elements.prepareButton.disabled = false;
+      setError("Preparation request is still associated with this session. Resume status checks to avoid submitting duplicate tasks. " + error.message);
+    } else {
+      elements.prepareButton.classList.remove("hidden");
+      elements.prepareButton.disabled = false;
+      setError(error.message);
+    }
+  } finally {
+    state.busy = false;
+    updateControls();
+  }
+});
+
+elements.prepApproveCheck.addEventListener("change", () => {
+  elements.draftButton.disabled = !elements.prepApproveCheck.checked || !state.preparationReady || state.busy;
 });
 
 elements.draftButton.addEventListener("click", async () => {
   clearError();
-  state.apiKey = elements.apiKey.value.trim();
-  if (!state.sourceUrl || !state.referenceUrl || !state.apiKey) return;
-  const resume = state.draftResumeOnly;
+  state.apiKey = elements.apiKey.value.trim() || state.apiKey;
+  if (!state.preparationReady || !elements.prepApproveCheck.checked || !state.apiKey) return;
   const prompt = elements.prompt.value.trim();
-  if (!resume && prompt.length < 8) return setError("Add a little more direction before creating the draft.");
-  if (!resume && !state.ffmpeg) return setError("Install FFmpeg and ffprobe before making a draft. The final export uses them to restore the original soundtrack.");
+  if (!state.draftResumeOnly && prompt.length < 8) return setError("Add a little more direction before creating the draft.");
+  if (!state.ffmpeg) return setError("Install FFmpeg and ffprobe before making a draft. They are used to create the composite and restore source audio.");
   state.busy = true;
-  lockInputs(true);
+  updateControls();
   elements.draftButton.classList.add("hidden");
-  setStep(2);
-  showProgress("draft", state.draftRequestId, resume ? "processing" : "submitting");
-  busy(elements.draftButton, true, resume ? "Checking draft…" : "Submitting draft…");
+  setStep(3);
+  showProgress("draft", state.draftRequestId, state.draftResumeOnly ? "processing" : "submitting");
+  busy(elements.draftButton, true, state.draftResumeOnly ? "Checking draft…" : "Submitting draft…");
   try {
-    if (!resume) {
+    if (!state.draftResumeOnly) {
       const submitted = await api("/api/draft", {
         method: "POST",
         json: {
           api_key: state.apiKey,
           source_asset_id: state.sourceAssetId,
-          source_url: state.sourceUrl,
+          preparation_id: state.preparationId,
+          preparation_approved: true,
           reference_url: state.referenceUrl,
           prompt,
         },
@@ -284,35 +403,37 @@ elements.draftButton.addEventListener("click", async () => {
     elements.progress.classList.add("hidden");
     elements.approveCheck.checked = false;
     elements.finalizeButton.disabled = true;
-    document.querySelector("#draft-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    elements.draftPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     elements.progress.classList.add("hidden");
     if (error.terminal) {
       state.draftRequestId = null;
       state.draftResumeOnly = false;
-      setError(`The service marked this draft as failed. Check request history and credits before submitting a fresh draft. ${error.message}`);
+      setError("The service marked this draft as failed. Check request history before submitting another. " + error.message);
       elements.draftButton.textContent = "Create a new 480p draft →";
       elements.draftButton.classList.remove("hidden");
-      lockInputs(false);
+      elements.draftButton.disabled = !elements.prepApproveCheck.checked;
+      setStep(2);
     } else if (state.draftRequestId) {
       state.draftResumeOnly = true;
-      setError(`Draft request ${state.draftRequestId} was submitted. Resume status checks here to avoid another paid submission. ${error.message}`);
-      elements.draftButton.textContent = "Resume draft status →";
+      setError("Draft request " + state.draftRequestId + " was submitted. Resume its status here to avoid another paid submission. " + error.message);
+      elements.draftButton.innerHTML = "Resume draft status <span aria-hidden=\"true\">→</span>";
       elements.draftButton.classList.remove("hidden");
-      lockInputs(true);
+      elements.draftButton.disabled = false;
     } else if (error.status === 504) {
-      setError("The service did not confirm whether the draft request was accepted. Check generation history before starting another job. Clear local files only after you have checked.");
-      lockInputs(true);
+      state.draftUnknown = true;
+      setError("The service did not confirm whether the draft was accepted. Check generation history before starting another job. The app has disabled another draft submission.");
     } else {
       setError(error.message);
-      setStep(1);
+      setStep(2);
       elements.draftButton.textContent = "Create 480p draft →";
       elements.draftButton.classList.remove("hidden");
-      lockInputs(false);
+      elements.draftButton.disabled = !elements.prepApproveCheck.checked;
     }
   } finally {
     state.busy = false;
     busy(elements.draftButton, false);
+    updateControls();
   }
 });
 
@@ -328,7 +449,7 @@ elements.finalizeButton.addEventListener("click", async () => {
   state.busy = true;
   if (!resume) state.finalizeUnknown = false;
   elements.approveCheck.disabled = true;
-  setStep(3);
+  setStep(4);
   showProgress("final", state.finalRequestId, resume ? "processing" : "submitting");
   busy(elements.finalizeButton, true, resume ? "Checking final…" : "Submitting final…");
   try {
@@ -357,23 +478,22 @@ elements.finalizeButton.addEventListener("click", async () => {
       : "The source clip has no audio track, so the generated video was exported as-is.";
     elements.finalPanel.classList.remove("hidden");
     elements.progress.classList.add("hidden");
-    document.querySelector("#final-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+    elements.finalPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     elements.progress.classList.add("hidden");
     if (error.terminal) {
       state.finalRequestId = null;
       state.finalResumeOnly = false;
-      setError(`The service marked this final render as failed. Check request history and credits before retrying. ${error.message}`);
+      setError("The service marked this final render as failed. Check request history before retrying. " + error.message);
       elements.finalizeButton.textContent = "Retry 1080p final →";
       elements.approveCheck.disabled = false;
-      setStep(2);
+      setStep(3);
     } else if (state.finalRequestId) {
       state.finalResumeOnly = true;
-      setError(`Final request ${state.finalRequestId} was submitted. Resume status checks here; this will not submit another render. ${error.message}`);
+      setError("Final request " + state.finalRequestId + " was submitted. Resume status checks here; this will not submit another render. " + error.message);
       elements.finalizeButton.textContent = "Resume final status →";
       elements.finalizeButton.disabled = false;
       elements.approveCheck.disabled = true;
-      setStep(3);
     } else if (error.status === 504) {
       state.finalizeUnknown = true;
       setError("The service did not confirm whether the final request was accepted. Check generation history before trying again. The app has disabled another final submission for this draft.");
@@ -383,7 +503,7 @@ elements.finalizeButton.addEventListener("click", async () => {
     } else {
       setError(error.message);
       elements.approveCheck.disabled = false;
-      setStep(2);
+      setStep(3);
     }
   } finally {
     state.busy = false;
@@ -391,9 +511,7 @@ elements.finalizeButton.addEventListener("click", async () => {
     if (state.finalResumeOnly) {
       elements.finalizeButton.textContent = "Resume final status →";
       elements.finalizeButton.disabled = false;
-    } else if (state.finalRequestId) {
-      elements.finalizeButton.disabled = true;
-    } else if (state.finalizeUnknown) {
+    } else if (state.finalRequestId || state.finalizeUnknown) {
       elements.finalizeButton.disabled = true;
     } else {
       elements.finalizeButton.textContent = "Approve & render 1080p →";
@@ -407,42 +525,55 @@ $("#clear-button").addEventListener("click", async () => {
     setError("Wait for the current upload or render step to finish before clearing the session.");
     return;
   }
-  try { await api("/api/clear", { method: "POST", json: {} }); } catch { /* Local state is still cleared. */ }
+  try { await api("/api/clear", { method: "POST", json: {} }); } catch { /* Clear browser state even if server cleanup is unavailable. */ }
   state.apiKey = "";
-  state.busy = false;
-  state.finalizeUnknown = false;
-  lockInputs(false);
-  state.sourceAssetId = state.sourceUrl = state.referenceUrl = state.draftRequestId = state.draftUrl = null;
-  state.draftResumeOnly = state.finalRequestId = state.finalResumeOnly = null;
   state.sourceFile = state.referenceFile = null;
+  state.sourceAssetId = state.sourceUrl = state.referenceUrl = null;
+  state.uploaded = false;
+  state.preparationId = null;
+  state.preparationReady = false;
+  state.preparationResumeOnly = false;
+  state.preparationUnknown = false;
+  state.draftRequestId = state.draftUrl = null;
+  state.draftResumeOnly = false;
+  state.draftUnknown = false;
+  state.finalRequestId = null;
+  state.finalResumeOnly = false;
+  state.finalizeUnknown = false;
+  state.busy = false;
   elements.apiKey.value = "";
   elements.sourceFile.value = "";
   elements.referenceFile.value = "";
-  elements.sourcePreview.pause();
-  elements.draftVideo.pause();
-  elements.finalVideo.pause();
-  elements.sourcePreview.removeAttribute("src");
+  [elements.sourcePreview, elements.prepSourceVideo, elements.depthVideo, elements.matteVideo, elements.compositeVideo, elements.draftVideo, elements.finalVideo].forEach((video) => {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  });
   elements.referencePreview.removeAttribute("src");
-  elements.draftVideo.removeAttribute("src");
-  elements.finalVideo.removeAttribute("src");
+  elements.prepPanel.classList.add("hidden");
   elements.draftPanel.classList.add("hidden");
   elements.finalPanel.classList.add("hidden");
   elements.progress.classList.add("hidden");
-  elements.draftButton.classList.add("hidden");
+  elements.prepareButton.classList.add("hidden");
   elements.uploadButton.classList.remove("hidden");
   elements.uploadStatus.textContent = "Add both files and your API key to continue.";
   elements.sourcePreview.classList.add("hidden");
   elements.referencePreview.classList.add("hidden");
   elements.sourceName.textContent = "Choose your clip";
   elements.referenceName.textContent = "Choose a clear image";
+  elements.prepApproveCheck.checked = false;
   elements.approveCheck.checked = false;
   elements.approveCheck.disabled = false;
   elements.draftButton.textContent = "Create 480p draft →";
+  elements.draftButton.classList.remove("hidden");
+  elements.draftButton.disabled = true;
   elements.finalizeButton.textContent = "Approve & render 1080p →";
   elements.finalizeButton.disabled = true;
+  elements.prepareButton.innerHTML = "Prepare depth + subject mask <span aria-hidden=\"true\">→</span>";
+  elements.prepareButton.disabled = true;
   setStep(1);
   clearError();
-  updateUploadButton();
+  updateControls();
 });
 
 $("#new-recast-button").addEventListener("click", () => $("#clear-button").click());
@@ -450,9 +581,9 @@ $("#new-recast-button").addEventListener("click", () => $("#clear-button").click
 api("/api/health").then((health) => {
   state.ffmpeg = Boolean(health.ffmpeg && health.ffprobe);
   if (state.ffmpeg) {
-    elements.requirements.innerHTML = '<span class="requirements-icon good">✓</span><div><strong>FFmpeg ready</strong><span>Source audio can be restored in the final export.</span></div>';
+    elements.requirements.innerHTML = '<span class="requirements-icon good">✓</span><div><strong>FFmpeg ready</strong><span>Depth compositing and source-audio restoration are available.</span></div>';
   } else {
-    elements.requirements.innerHTML = '<span class="requirements-icon warn">!</span><div><strong>FFmpeg not found</strong><span>Install FFmpeg and ffprobe to enable draft and final exports.</span></div>';
+    elements.requirements.innerHTML = '<span class="requirements-icon warn">!</span><div><strong>FFmpeg not found</strong><span>Install FFmpeg and ffprobe to create the depth composite and export with source audio.</span></div>';
   }
 }).catch(() => {
   elements.requirements.innerHTML = '<span class="requirements-icon warn">!</span><div><strong>Local service unavailable</strong><span>Restart the app server, then refresh this page.</span></div>';

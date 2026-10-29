@@ -93,10 +93,10 @@ function showProgress(kind, requestId, status = "processing") {
   elements.finalPanel.classList.add("hidden");
   elements.progressTitle.textContent = isFinal ? "Rendering your approved final…" : "Preparing your draft…";
   elements.progressCopy.textContent = isFinal
-    ? "Muapi is finalizing the accepted draft at 1080p. Keep this tab open while it runs."
-    : "Muapi is generating your 480p preview. Keep this tab open while it runs.";
+    ? "The service is finalizing the accepted draft at 1080p. Keep this tab open while it runs."
+    : "The service is generating your 480p preview. Keep this tab open while it runs.";
   elements.progressRequest.textContent = requestId ? `REQUEST ${requestId.slice(0, 12).toUpperCase()}` : "";
-  const label = status === "submitting" ? "SUBMITTING REQUEST" : "WAITING FOR MUAPI";
+  const label = status === "submitting" ? "SUBMITTING REQUEST" : "WAITING FOR SERVICE";
   elements.progressLabel.textContent = label;
   elements.progressBar.classList.toggle("indeterminate", status !== "completed");
   elements.progressBar.classList.toggle("finished", status === "completed");
@@ -147,18 +147,18 @@ async function waitForTask(requestId, kind) {
     showProgress(kind, requestId, status);
     if (terminalSuccess.has(status)) {
       const videoUrl = findVideoUrl(result);
-      if (!videoUrl) throw new Error("The request completed, but Muapi did not return a video URL.");
+      if (!videoUrl) throw new Error("The request completed, but no video URL was returned.");
       return { result, videoUrl };
     }
     if (terminalFailure.has(status)) {
-      const detail = result?.error_message || result?.error?.message || result?.output_data?.error || "Muapi could not complete this request.";
+      const detail = result?.error_message || result?.error?.message || result?.output_data?.error || "The service could not complete this request.";
       const error = new Error(String(detail));
       error.terminal = true;
       throw error;
     }
     await new Promise((resolve) => window.setTimeout(resolve, 3500));
   }
-  throw new Error("This request is taking longer than expected. Check its status in your Muapi dashboard before submitting again.");
+  throw new Error("This request is taking longer than expected. Check its status in your provider's history before submitting again.");
 }
 
 async function uploadOne(file, kind) {
@@ -215,7 +215,7 @@ elements.uploadButton.addEventListener("click", async () => {
   state.busy = true;
   lockInputs(true);
   busy(elements.uploadButton, true, "Uploading…");
-  elements.uploadStatus.textContent = "Uploading source video and character image to Muapi…";
+  elements.uploadStatus.textContent = "Uploading source video and character image…";
   try {
     const [source, reference] = await Promise.all([
       uploadOne(state.sourceFile, "source"),
@@ -290,7 +290,7 @@ elements.draftButton.addEventListener("click", async () => {
     if (error.terminal) {
       state.draftRequestId = null;
       state.draftResumeOnly = false;
-      setError(`Muapi marked this draft as failed. Check request history and credits before submitting a fresh draft. ${error.message}`);
+      setError(`The service marked this draft as failed. Check request history and credits before submitting a fresh draft. ${error.message}`);
       elements.draftButton.textContent = "Create a new 480p draft →";
       elements.draftButton.classList.remove("hidden");
       lockInputs(false);
@@ -301,7 +301,7 @@ elements.draftButton.addEventListener("click", async () => {
       elements.draftButton.classList.remove("hidden");
       lockInputs(true);
     } else if (error.status === 504) {
-      setError("Muapi did not confirm whether the draft request was accepted. Check your Muapi history before starting another generation. Clear local files only after you have checked.");
+      setError("The service did not confirm whether the draft request was accepted. Check generation history before starting another job. Clear local files only after you have checked.");
       lockInputs(true);
     } else {
       setError(error.message);
@@ -350,7 +350,7 @@ elements.finalizeButton.addEventListener("click", async () => {
     });
     elements.finalVideo.src = exported.download_url;
     elements.downloadLink.href = exported.download_url;
-    elements.downloadLink.download = "muapi-video-recast-final.mp4";
+    elements.downloadLink.download = "open-genjutsu-final.mp4";
     $("#export-headline").textContent = exported.source_audio_restored ? "Original soundtrack restored." : "Final render ready.";
     $("#export-copy").textContent = exported.source_audio_restored
       ? "The complete source audio track has been muxed into your 1080p render locally."
@@ -363,7 +363,7 @@ elements.finalizeButton.addEventListener("click", async () => {
     if (error.terminal) {
       state.finalRequestId = null;
       state.finalResumeOnly = false;
-      setError(`Muapi marked this final render as failed. Check request history and credits before retrying. ${error.message}`);
+      setError(`The service marked this final render as failed. Check request history and credits before retrying. ${error.message}`);
       elements.finalizeButton.textContent = "Retry 1080p final →";
       elements.approveCheck.disabled = false;
       setStep(2);
@@ -376,7 +376,7 @@ elements.finalizeButton.addEventListener("click", async () => {
       setStep(3);
     } else if (error.status === 504) {
       state.finalizeUnknown = true;
-      setError("Muapi did not confirm whether the final request was accepted. Check your Muapi history before trying again. The app has disabled another final submission for this draft.");
+      setError("The service did not confirm whether the final request was accepted. Check generation history before trying again. The app has disabled another final submission for this draft.");
       elements.finalizeButton.disabled = true;
       elements.approveCheck.disabled = true;
       setStep(3);

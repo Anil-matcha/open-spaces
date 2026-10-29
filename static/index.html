@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#10100f" />
     <meta name="description" content="Replace a subject in your video with a character reference, review a draft, then approve the final render." />
-    <title>Muapi Video Recast</title>
+    <title>Open Genjutsu</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -14,9 +14,9 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="brand" href="/" aria-label="Muapi Video Recast home">
+        <a class="brand" href="/" aria-label="Open Genjutsu home">
           <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
-          <span>muapi<span class="brand-light"> studio</span></span>
+          <span>open<span class="brand-light"> genjutsu</span></span>
         </a>
         <div class="topbar-right">
           <span class="local-pill"><span class="live-dot"></span> LOCAL SESSION</span>
@@ -26,7 +26,7 @@
 
       <main>
         <section class="hero">
-          <div class="eyebrow"><span class="eyebrow-line"></span> VIDEO RECAST · POWERED BY MUAPI</div>
+          <div class="eyebrow"><span class="eyebrow-line"></span> VIDEO RECAST · LOCAL-FIRST WORKFLOW</div>
           <h1>Same moment.<br /><span>A new lead.</span></h1>
           <p class="hero-copy">Recast the main subject in a video. Keep the movement, scene, and original soundtrack, with a draft review before the final render.</p>
         </section>
@@ -47,12 +47,12 @@
                 <span class="step-badge">DRAFT FIRST</span>
               </div>
 
-              <label class="field-label" for="api-key">Muapi API key</label>
+              <label class="field-label" for="api-key">Generation API key</label>
               <div class="key-row">
                 <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key" />
                 <button id="toggle-key" class="key-toggle" type="button">Show</button>
               </div>
-              <p class="field-hint">Kept in this tab's memory. Sent to your local app and Muapi only.</p>
+              <p class="field-hint">Kept in this tab's memory and forwarded by your local app for API requests.</p>
 
               <div class="upload-grid">
                 <div class="upload-block">
@@ -86,7 +86,7 @@
                 <button class="button button-primary" id="upload-button" type="button" disabled>Upload media <span aria-hidden="true">→</span></button>
               </div>
               <button class="button button-primary full-width hidden" id="draft-button" type="button" disabled>Create 480p draft <span aria-hidden="true">→</span></button>
-              <div class="cost-note" id="cost-note">Draft submission uses Muapi credits. A separate 1080p render is only submitted after your approval.</div>
+              <div class="cost-note" id="cost-note">Draft and final submissions use account credits. A separate 1080p render is only submitted after your approval.</div>
               <div class="alert hidden" id="error-box" role="alert"></div>
             </section>
 
@@ -98,7 +98,7 @@
               <div class="process-list">
                 <div class="process-item">
                   <span class="process-icon">◉</span>
-                  <div><h3>Upload your source</h3><p>Muapi receives the media for generation. The source also stays on this device for the final audio pass.</p></div>
+                  <div><h3>Upload your source</h3><p>Your selected media is sent to the generation service. The source also stays on this device for audio restoration.</p></div>
                 </div>
                 <div class="process-item">
                   <span class="process-icon">⌁</span>
@@ -131,13 +131,13 @@
                 <a class="text-link" id="draft-open-link" href="#" target="_blank" rel="noreferrer">Open draft video ↗</a>
                 <label class="approval-check"><input id="approve-check" type="checkbox" /><span>I reviewed this draft and approve a separate 1080p final render.</span></label>
                 <button class="button button-primary full-width" id="finalize-button" type="button" disabled>Approve & render 1080p <span aria-hidden="true">→</span></button>
-                <p class="approval-note">This is a separate, paid Muapi request. Your draft remains available as a preview.</p>
+                <p class="approval-note">This is a separate, paid final-render request. Your draft remains available as a preview.</p>
               </div>
             </div>
           </section>
 
           <section class="panel progress-panel hidden" id="progress-panel" aria-live="polite">
-            <div class="progress-head"><div class="spinner"></div><div><div class="section-index" id="progress-eyebrow">MUAPI GENERATION</div><h2 id="progress-title">Preparing your draft…</h2><p id="progress-copy">This can take a few minutes. Keep this tab open while the request is running.</p></div></div>
+            <div class="progress-head"><div class="spinner"></div><div><div class="section-index" id="progress-eyebrow">GENERATION IN PROGRESS</div><h2 id="progress-title">Preparing your draft…</h2><p id="progress-copy">This can take a few minutes. Keep this tab open while the request is running.</p></div></div>
             <div class="progress-track"><span id="progress-bar"></span></div>
             <div class="progress-meta"><span id="progress-label">SUBMITTING REQUEST</span><span id="progress-request"></span></div>
           </section>
@@ -159,7 +159,7 @@
             </div>
           </section>
 
-          <footer class="page-footer"><span>MUAPI VIDEO RECAST</span><span>MADE FOR YOUR LOCAL WORKSPACE</span></footer>
+          <footer class="page-footer"><span>OPEN GENJUTSU</span><span>MADE FOR YOUR LOCAL WORKSPACE</span></footer>
         </section>
       </main>
     </div>

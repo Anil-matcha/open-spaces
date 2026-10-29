@@ -1,56 +1,142 @@
-# Muapi Video Recast
+# Open Genjutsu
 
-Muapi Video Recast is a local-first studio for replacing a subject in a short video while keeping the original scene and performance. It uses Muapi's Seedance 2.5 Omni Reference API for a low-resolution draft, gives you a review step, and only submits a separate 1080p render after you approve the draft.
+**Recast the main subject in a short video, review a draft, then approve the final render.** The finished MP4 uses the source video's original soundtrack.
 
-The original video is uploaded to Muapi for generation and also kept in a local runtime folder so the finished render can use the source soundtrack. The app does not save your Muapi API key. Keep the app bound to localhost and do not expose it to a public network.
+Open Genjutsu is a local-first, single-user video workflow. It keeps the source clip on your device for audio restoration and sends the media you choose to the generation service. The current adapter uses Muapi's Seedance 2.5 Omni Reference API.
 
-## Muapi request flow
+![License](https://img.shields.io/github/license/Anil-matcha/open-genjutsu) ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB) ![Local-first](https://img.shields.io/badge/runtime-local--first-5865F2)
 
-- Media uploads use `POST /api/v1/upload_file`.
-- Drafts use `POST /api/v1/seedance-2.5-omni-reference` with edit mode and `draft: true`.
-- Status checks use `GET /api/v1/predictions/{request_id}/result`.
-- Approved drafts are finalized by calling the Omni Reference endpoint again with `draft_request_id` and `resolution: "1080p"`.
+## Contents
 
-## What it does
+- [How it works](#how-it-works)
+- [Requirements](#requirements)
+- [Run locally](#run-locally)
+- [Media limits](#media-limits)
+- [Privacy and local files](#privacy-and-local-files)
+- [API flow](#api-flow)
+- [Troubleshooting](#troubleshooting)
+- [Project layout](#project-layout)
+- [License](#license)
 
-1. Upload a source video and a replacement-character image to Muapi.
-2. Submit an Omni Reference edit draft at 480p.
-3. Review the completed draft with the source soundtrack restored and approve it before finalization.
-4. Finalize the accepted draft at 1080p using its original request ID.
-5. Download the final video and mux the source video's complete audio track into it with FFmpeg.
+## How it works
 
-The edit request uses adaptive framing and source timing. The final audio mux is done locally; uploaded source media and returned model media remain subject to Muapi's API terms and retention behavior. Draft and final render are separate paid Muapi requests.
+1. **Choose media.** Add a 4–30 second source clip and a character reference image.
+2. **Set the direction.** The prompt refers to the source as `@video1` and the new subject as `@image1`.
+3. **Generate a draft.** The app submits a 480p edit preview and checks its status.
+4. **Review the full clip.** A local review copy has the original soundtrack restored.
+5. **Approve the final.** Only after you check the approval box does the app submit that draft for a separate 1080p render.
+6. **Export locally.** FFmpeg combines the final video with the source audio and saves a downloadable MP4.
+
+Draft and final generation are separate paid requests. The final render reuses the completed draft ID, prompt, and reference media; it is not a fresh prompt submission.
 
 ## Requirements
 
-- Python 3.10 or newer
-- FFmpeg with `ffprobe` available on `PATH`
-- A Muapi API key with available credits
+- Python 3.10+
+- FFmpeg and `ffprobe` on your `PATH`
+- An API key and available credits for the configured generation service
+
+Install FFmpeg with your system's package manager, then confirm both `ffmpeg` and `ffprobe` are available from a new terminal. On Windows, install an FFmpeg build and add its `bin` directory to `PATH`.
+
+Common package-manager commands:
+
+```bash
+# macOS with Homebrew
+brew install ffmpeg
+
+# Debian or Ubuntu
+sudo apt install ffmpeg
+```
 
 ## Run locally
 
 ```bash
+git clone https://github.com/Anil-matcha/open-genjutsu.git
+cd open-genjutsu
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python -m uvicorn app:app --host 127.0.0.1 --port 8770
 ```
 
-Open <http://127.0.0.1:8770>. On Windows, activate the environment with `.venv\Scripts\activate`.
+On Windows PowerShell, activate the environment with:
 
-## API key and privacy
+```powershell
+.venv\Scripts\Activate.ps1
+```
 
-- Enter your API key in the app when you open it. It stays in page memory and is forwarded by the local server to Muapi with each request.
-- The local server forwards API requests to `https://api.muapi.ai/api/v1` and never writes the API key to disk or logs.
-- Uploaded source videos are temporarily stored in `runtime/` for audio restoration. Generated exports are stored in `runtime/exports/`.
-- Use **Clear local files** when you are finished. You can also remove `runtime/` after stopping the app.
-- The app binds to `127.0.0.1`. Keep this setting if you run it on a shared machine.
-- Keep the server process and browser tab open while a job is running. This lightweight local app keeps request state in memory for the current session.
+Open <http://127.0.0.1:8770>, enter your API key, choose the source video and reference image, then upload them. The key stays in page memory and is forwarded by the local app with each API request.
 
-## Notes
+## Media limits
 
-- Source videos must be MP4 or MOV, 4–30 seconds long, and no larger than 50 MB. Character images must be JPEG, PNG, or WebP and no larger than 10 MB, matching Muapi's upload limits.
-- The reference image is sent as `@image1`; the source clip is sent as `@video1`.
-- The 1080p step reuses the completed draft through Muapi's `draft_request_id` flow. It is not a second independent prompt submission.
-- If the source contains no audio track, the app exports the generated video without attempting an audio replacement.
-- API requests and generation may incur Muapi charges. Review your request and account balance before submitting.
+| Input | Supported formats | Limit |
+| --- | --- | --- |
+| Source video | MP4, MOV | 4–30 seconds; 50 MB |
+| Character reference | JPEG, PNG, WebP | 10 MB |
+
+The source video must be readable by FFmpeg. Use one replacement image per recast. The app checks the video duration before upload so the edit and restored soundtrack use a compatible timeline.
+
+## Privacy and local files
+
+- The API key is held in page memory and is not written to disk or application logs.
+- The selected source video and reference image are uploaded for generation. A local source copy is kept in `runtime/assets/` so the original audio can be restored.
+- Review and final exports are written to `runtime/exports/`.
+- Use **Clear local files** in the app when finished, or remove `runtime/` after stopping the server.
+- The server binds to `127.0.0.1`. Keep it there; this app has no authentication for public hosting.
+- Uploaded media is subject to the generation service's own storage and retention terms.
+
+Keep the server process and browser tab open while a job is running. Request state is held in memory and does not survive a server restart.
+
+Use only source footage and likeness references you have permission to process and share. Review the result before publishing it.
+
+## API flow
+
+The current adapter calls these endpoints:
+
+| Purpose | Request |
+| --- | --- |
+| Upload media | `POST /api/v1/upload_file` |
+| Create 480p edit draft | `POST /api/v1/seedance-2.5-omni-reference` with `draft: true` and edit mode |
+| Check job status | `GET /api/v1/predictions/{request_id}/result` |
+| Finalize the approved draft | `POST /api/v1/seedance-2.5-omni-reference` with `draft_request_id` and `resolution: "1080p"` |
+
+The local server proxies these requests so the browser does not call the model API directly. To switch providers, replace the adapter calls in `app.py` and update the request fields for that provider.
+
+The draft request sends the source and image as references, selects edit mode, and chooses the low-resolution preview tier:
+
+```json
+{
+  "prompt": "Replace the primary subject in @video1 with the character in @image1. Preserve timing, motion, framing, and background.",
+  "videos_list": ["SOURCE_VIDEO_URL"],
+  "images_list": ["CHARACTER_IMAGE_URL"],
+  "omni_reference_task_type": "edit",
+  "resolution": "480p",
+  "draft": true
+}
+```
+
+After review, finalization sends the completed draft's ID with `resolution: "1080p"`; the service reuses the draft's prompt and references.
+
+## Troubleshooting
+
+| Issue | What to check |
+| --- | --- |
+| FFmpeg is not ready | Install FFmpeg, open a new terminal, and confirm `ffmpeg -version` and `ffprobe -version` work. Restart the app. |
+| Upload is rejected | Check the file format, size, duration, API key, and account balance. |
+| A request times out | Check the service's request history before retrying. A timed-out submission may have been accepted. |
+| Final audio export fails | Confirm the source file still exists in `runtime/assets/` and that FFmpeg can read its codecs. |
+| Job state is missing | The app process may have restarted. Start a new session and upload the media again. |
+
+## Project layout
+
+```text
+app.py                 Local FastAPI server and API adapter
+static/index.html      Workflow UI
+static/app.js          Upload, polling, review, and approval flow
+static/styles.css      Responsive dark studio interface
+runtime/assets/        Temporary local source copies (ignored by Git)
+runtime/exports/       Local MP4 exports (ignored by Git)
+```
+
+## License
+
+Open Genjutsu is licensed under the MIT License. See [LICENSE](LICENSE).

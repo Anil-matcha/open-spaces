@@ -23,7 +23,7 @@ RUNTIME = ROOT / "runtime"
 ASSET_DIR = RUNTIME / "assets"
 EXPORT_DIR = RUNTIME / "exports"
 STATIC_DIR = ROOT / "static"
-MUAPI_BASE = "https://api.muapi.ai/api/v1"
+API_BASE = "https://api.muapi.ai/api/v1"
 MAX_VIDEO_BYTES = 50 * 1024 * 1024
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MIN_VIDEO_SECONDS = 4
@@ -35,7 +35,7 @@ ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 for directory in (ASSET_DIR, EXPORT_DIR):
     directory.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Muapi Video Recast", docs_url=None, redoc_url=None)
+app = FastAPI(title="Open Genjutsu", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -70,7 +70,7 @@ def _safe_id(value: str, label: str) -> str:
 def _api_key(value: str) -> str:
     key = value.strip()
     if not key or "\n" in key or "\r" in key:
-        raise HTTPException(status_code=400, detail="Enter a valid Muapi API key.")
+        raise HTTPException(status_code=400, detail="Enter a valid API key.")
     return key
 
 
@@ -92,19 +92,19 @@ def _message_from_response(response: httpx.Response) -> str:
             return error["message"]
         if isinstance(payload.get("message"), str):
             return payload["message"]
-    return f"Muapi returned HTTP {response.status_code}. Check the API key, credits, and request fields."
+    return f"The generation API returned HTTP {response.status_code}. Check the API key, credits, and request fields."
 
 
-async def _muapi_request(method: str, path: str, key: str, **kwargs: Any) -> httpx.Response:
+async def _api_request(method: str, path: str, key: str, **kwargs: Any) -> httpx.Response:
     headers = dict(kwargs.pop("headers", {}))
     headers["x-api-key"] = _api_key(key)
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=20), follow_redirects=False) as client:
-            response = await client.request(method, f"{MUAPI_BASE}/{path.lstrip('/')}", headers=headers, **kwargs)
+            response = await client.request(method, f"{API_BASE}/{path.lstrip('/')}", headers=headers, **kwargs)
     except httpx.TimeoutException as exc:
-        raise HTTPException(status_code=504, detail="Muapi did not respond in time. Check request status before retrying to avoid a duplicate generation.") from exc
+        raise HTTPException(status_code=504, detail="The generation API did not respond in time. Check request status before retrying to avoid a duplicate generation.") from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail="Could not reach Muapi. Check your connection and try again.") from exc
+        raise HTTPException(status_code=502, detail="Could not reach the generation API. Check your connection and try again.") from exc
     if response.is_error:
         raise HTTPException(status_code=response.status_code, detail=_message_from_response(response))
     return response
@@ -184,7 +184,7 @@ async def upload_media(
         local_path = ASSET_DIR / f"{asset_id}{suffix}"
         local_path.write_bytes(data)
     try:
-        response = await _muapi_request(
+        response = await _api_request(
             "POST",
             "upload_file",
             api_key,
@@ -201,7 +201,7 @@ async def upload_media(
     if not isinstance(uploaded_url, str) or not uploaded_url.startswith("https://"):
         if local_path:
             local_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=502, detail="Muapi accepted the upload but did not return a usable media URL.")
+        raise HTTPException(status_code=502, detail="The service accepted the upload but did not return a usable media URL.")
 
     ASSETS[asset_id] = {"kind": kind, "path": local_path, "name": filename}
     return {"asset_id": asset_id, "url": uploaded_url, "filename": filename}
@@ -213,7 +213,7 @@ async def create_draft(request: DraftRequest) -> dict[str, Any]:
     if not source or source.get("kind") != "source" or not source.get("path"):
         raise HTTPException(status_code=404, detail="The source video is no longer available locally. Upload it again.")
     if not request.source_url.startswith("https://") or not request.reference_url.startswith("https://"):
-        raise HTTPException(status_code=400, detail="Muapi media URLs must use HTTPS.")
+        raise HTTPException(status_code=400, detail="Media URLs must use HTTPS.")
     payload = {
         "prompt": request.prompt.strip(),
         "images_list": [request.reference_url],
@@ -222,30 +222,30 @@ async def create_draft(request: DraftRequest) -> dict[str, Any]:
         "resolution": "480p",
         "draft": True,
     }
-    response = await _muapi_request("POST", "seedance-2.5-omni-reference", request.api_key, json=payload)
+    response = await _api_request("POST", "seedance-2.5-omni-reference", request.api_key, json=payload)
     try:
         result = response.json()
     except ValueError as exc:
-        raise HTTPException(status_code=502, detail="Muapi returned an unreadable draft response.") from exc
+        raise HTTPException(status_code=502, detail="The service returned an unreadable draft response.") from exc
     if not result.get("request_id"):
-        raise HTTPException(status_code=502, detail="Muapi did not return a draft request ID.")
+        raise HTTPException(status_code=502, detail="The service did not return a draft request ID.")
     return result
 
 
 @app.get("/api/predictions/{request_id}")
 async def prediction(request_id: str, x_api_key: str = Header(..., alias="x-api-key")) -> dict[str, Any]:
     safe_request_id = _safe_id(request_id, "request ID")
-    response = await _muapi_request("GET", f"predictions/{safe_request_id}/result", x_api_key)
+    response = await _api_request("GET", f"predictions/{safe_request_id}/result", x_api_key)
     try:
         return response.json()
     except ValueError as exc:
-        raise HTTPException(status_code=502, detail="Muapi returned an unreadable prediction response.") from exc
+        raise HTTPException(status_code=502, detail="The service returned an unreadable prediction response.") from exc
 
 
 @app.post("/api/finalize")
 async def finalize_draft(request: FinalizeRequest) -> dict[str, Any]:
     draft_id = _safe_id(request.draft_request_id, "draft request ID")
-    response = await _muapi_request(
+    response = await _api_request(
         "POST",
         "seedance-2.5-omni-reference",
         request.api_key,
@@ -254,9 +254,9 @@ async def finalize_draft(request: FinalizeRequest) -> dict[str, Any]:
     try:
         result = response.json()
     except ValueError as exc:
-        raise HTTPException(status_code=502, detail="Muapi returned an unreadable finalization response.") from exc
+        raise HTTPException(status_code=502, detail="The service returned an unreadable finalization response.") from exc
     if not result.get("request_id"):
-        raise HTTPException(status_code=502, detail="Muapi did not return a final render request ID.")
+        raise HTTPException(status_code=502, detail="The service did not return a final render request ID.")
     return result
 
 
@@ -299,7 +299,7 @@ async def _download_result(url: str, destination: Path) -> None:
     except HTTPException:
         raise
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail="Could not download the generated video. You can open its Muapi result URL directly.") from exc
+        raise HTTPException(status_code=502, detail="Could not download the generated video. The result URL remains available in the generation service.") from exc
     if size == 0:
         raise HTTPException(status_code=502, detail="The generated video download was empty.")
 
@@ -343,7 +343,7 @@ async def download_export(export_id: str) -> FileResponse:
     path = EXPORTS.get(export_id)
     if not path or not path.exists():
         raise HTTPException(status_code=404, detail="This export is no longer available. Create it again.")
-    return FileResponse(path, media_type="video/mp4", filename="muapi-video-recast-final.mp4")
+    return FileResponse(path, media_type="video/mp4", filename="open-genjutsu-final.mp4")
 
 
 @app.post("/api/clear")

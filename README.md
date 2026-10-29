@@ -6,6 +6,14 @@ Open Genjutsu is a local-first video workspace. It keeps a source copy on your d
 
 ![MIT License](https://img.shields.io/github/license/Anil-matcha/open-genjutsu) ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB) ![Local-first](https://img.shields.io/badge/runtime-local--first-5865F2)
 
+## Sample avatar animation
+
+<p align="center">
+  <a href="docs/media/avatar-sample.mp4"><img src="docs/media/avatar-sample.gif" alt="Five-second fictional avatar animation preview" width="360" /></a>
+  <br />
+  <sub>Vidu Q2 Turbo · 5 sec · 720p · Fictional avatar start frame: <a href="docs/media/avatar-sample.png">PNG</a> · Full sample: <a href="docs/media/avatar-sample.mp4">MP4</a></sub>
+</p>
+
 ## Contents
 
 - [How it works](#how-it-works)
